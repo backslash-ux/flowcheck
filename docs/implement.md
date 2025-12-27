@@ -1,0 +1,132 @@
+# FlowCheck: Comprehensive Implementation Plan (v0)
+
+## 1. Executive Summary
+
+FlowCheck is a local "safety layer" designed to resolve the paradox between "vibe coding" (deep creative focus) and development hygiene (clean commits and manageable diffs). It operates as a Model Context Protocol (MCP) server that observes local development signals—such as Git activity and editor focus—to derive "flow health" metrics.
+
+Unlike traditional tools that act as "traffic cops" by blocking actions or enforcing rigid policy, FlowCheck acts as a "smart fitness watch" for coding. It offers configurable, non-blocking nudges to encourage better habits, such as frequent checkpoints or splitting large branches, without ever interrupting the developer's momentum. It is architected to be privacy-first, keeping all analysis on the user's machine.
+
+## 2. Strategic Positioning & Differentiation
+
+To ensure adoption, FlowCheck occupies a unique niche as a "workflow hygiene coach," distinct from existing tools:
+
+| Category | Existing Solutions | FlowCheck's Differentiator |
+|----------|-------------------|---------------------------|
+| Commit Reminders | CLI tools (git-remind) or VS Code extensions that simply prompt on a timer. | Holistic Coach: Analyzes diff size, branch age, and complexity, not just time. It offers qualitative advice, not just alerts. |
+| Repo Health Tools | Hosted analyzers (e.g., NxCode, GitHub Insights) that rely on remote APIs and project-level scoring. | Local & Private: Operates purely offline. No telemetry or code leaves the machine, making it safe for enterprise use. |
+| Linters/Blockers | Pre-commit hooks that prevent actions until rules are met. | Non-Blocking: A "safety layer" that nudges. It never prevents a commit or push, preserving developer autonomy. |
+
+## 3. System Architecture (v0)
+
+The v0 architecture is modular and local-first. It isolates the backend logic from the user interface using the Model Context Protocol (MCP), allowing a single engine to serve editors, dashboards, and AI agents simultaneously.
+
+### 3.1 Core Components
+
+1. **Core Engine (Python)**: The backend logic that wraps the Git CLI (or libraries like gitpython). It actively inspects repositories to calculate raw metrics, such as `git diff --shortstat` and commit timestamps.
+2. **Rules Engine**: A set of Python functions that map quantitative metrics (from the Core Engine) to qualitative, human-readable suggestions based on user configuration.
+3. **MCP Server**: A clean wrapper around the engine that exposes data via standard RPC-style interfaces (`get_flow_state`), avoiding any UI assumptions.
+4. **Configuration**: A local JSON file (default: `~/.flowcheck/config.json`) defining the user-specific thresholds that trigger warnings.
+
+### 3.2 Data Flow
+
+1. **Observe**: The Core Engine monitors the file system and Git status.
+2. **Derive**: Raw signals are processed into a structured `flow_state` object.
+3. **Evaluate**: The Rules Engine compares `flow_state` against `config.json` thresholds.
+4. **Expose**: The MCP Server surfaces the state and recommendations to connected clients.
+
+## 4. Data Model Specification
+
+The system relies on converting low-level signals into a high-level "Flow State" object.
+
+### 4.1 Input Signals (Raw Data)
+
+The Core Engine observes the following signals:
+
+- **Git**: Current branch name.
+- **Git**: Time since last commit (minutes).
+- **Git**: Number of uncommitted files.
+- **Git**: Total added/removed lines in the current diff.
+- **Session**: (Optional for v0) System idle time or last keyboard activity.
+
+### 4.2 Derived State Object (`flow_state`)
+
+The API returns a canonical object representing the repository's health:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `minutes_since_last_commit` | Integer | Minutes elapsed since the HEAD commit. |
+| `uncommitted_lines` | Integer | Sum of additions and deletions in the working tree. |
+| `uncommitted_files` | Integer | Count of modified/staged files. |
+| `branch_name` | String | Active Git branch. |
+| `status` | Enum | Qualitative health indicator: "ok", "warning", or "danger". |
+| *(Future v1 fields: `branch_age_days`, `behind_main_by_commits`)* | | |
+
+### 4.3 Configuration Parameters
+
+Users configure their "vibe" thresholds in `~/.flowcheck/config.json`:
+
+- `max_minutes_without_commit`: Threshold for time-based warnings (e.g., 60).
+- `max_lines_uncommitted`: Threshold for diff-size warnings (e.g., 500).
+
+## 5. API Specification (MCP Tools)
+
+The MCP server exposes three primary tools to clients (editors, AI agents, etc.).
+
+### Tool 1: `get_flow_state`
+
+- **Purpose**: Returns the raw `flow_state` object. Allows AI clients to understand context without manual explanation.
+- **Parameters**: `{ "repo_path": "string" }`
+- **Returns**: JSON object (e.g., `{ "status": "warning", "uncommitted_lines": 520, ... }`).
+
+### Tool 2: `get_recommendations`
+
+- **Purpose**: Returns human-readable "nudges" generated by the Rules Engine.
+- **Parameters**: `{ "repo_path": "string" }`
+- **Returns**: JSON object with recommendations array.
+
+### Tool 3: `set_rules` (Optional)
+
+- **Purpose**: Dynamically updates configuration thresholds for the current session or globally.
+- **Parameters**: `{ "config": object }`
+
+## 6. Rule Engine Logic (v0)
+
+The v0 implementation focuses on Commit Hygiene using simple logic:
+
+### Time-based Nudge
+
+- **Condition**: `minutes_since_last_commit > max_minutes_without_commit`
+- **Action**: Suggest a "checkpoint commit" to save progress.
+
+### Diff-size Nudge
+
+- **Condition**: `uncommitted_lines > max_lines_uncommitted`
+- **Action**: Suggest splitting work into smaller commits or branches to avoid "monster PRs."
+
+*Future Rules (v1+): Detect stale branches (`branch_age > Y` days) or "Context Thrashing" (rapid file switching without edits).*
+
+## 7. User Experience ("Vibe Coding")
+
+The UX is designed to be a "quiet coach" that respects the developer's flow.
+
+### 7.1 Interaction Models
+
+- **Passive**: A status line in VS Code/Neovim reads `FlowCheck: OK · 24m · 45 lines`. It turns yellow/red as thresholds are crossed.
+- **Active**: The developer asks via Command Palette or Chat: "Ask FlowCheck for advice".
+- **Proactive**: An AI assistant (e.g., Claude/Copilot) sees the `flow_state` via MCP and asks: "Looks like you have 500 lines pending. Want help crafting a checkpoint?".
+
+### 7.2 Key Scenarios
+
+1. **The "Monster PR" Prevention**: If `uncommitted_lines` exceeds 800, FlowCheck suggests: "Your changeset is very large. Consider partial commits grouped by domain (backend vs. frontend) to ease review." This prevents future "merge hell".
+2. **Re-entry to Flow**: When returning to a project after days away, the developer requests a summary. FlowCheck reports: "Last commit 3 days ago. You have 120 uncommitted lines in `orderService.py`." This instant context snapshot eliminates the need to dig through `git log`.
+3. **The "Night Owl" Session**: During a long solo session, FlowCheck quietly monitors the background. If 90 minutes pass with no commit, it flags a "Warning" status, prompting the developer to save a checkpoint before fatigue causes errors, ensuring the history remains healthy.
+
+## 8. Roadmap
+
+- **Phase 1 (Current)**: Python MCP server, Git CLI integration, basic JSON schemas, and local config file.
+- **Phase 2**: Integration with editors (VS Code extension acting as MCP client) and terminal dashboards.
+    • Phase 3: Advanced heuristics (Context Thrashing detection) and AI-driven recommendations that draft the commit messages for you.
+
+---
+
+Analogy for Understanding: Think of FlowCheck not as a traffic cop that forces you to stop and checks your license, but as a smart fitness watch. The watch doesn't prevent you from running; it simply glances at your biometrics and quietly buzzes to say, "Your heart rate is peaking, maybe slow down for a minute," or "You haven't moved in an hour, time to stretch." It preserves your momentum while ensuring you don't burn out or injure yourself

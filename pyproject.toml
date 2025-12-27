@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "flowcheck"
+version = "0.1.0"
+description = "A local MCP safety layer for developer workflow hygiene"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [
+    { name = "FlowCheck Team" }
+]
+keywords = ["mcp", "git", "developer-tools", "productivity"]
+
+dependencies = [
+    "fastmcp>=2.0",
+    "gitpython>=3.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "pytest-asyncio>=0.21",
+]
+
+[project.scripts]
+flowcheck = "flowcheck.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/flowcheck"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
