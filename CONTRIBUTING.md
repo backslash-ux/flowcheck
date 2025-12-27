@@ -1,6 +1,15 @@
 # Contributing to FlowCheck
 
-Thank you for your interest in contributing to FlowCheck! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to FlowCheck! This project is designed as an **AI-first Git hygiene tool**, so contributions should keep this philosophy in mind.
+
+## Design Philosophy
+
+FlowCheck is built for **agentic coding workflows**—AI assistants that write code autonomously. Key principles:
+
+1. **Non-blocking**: Nudge, never block. Preserve developer autonomy.
+2. **AI-readable**: Tools return structured data that AI agents can act on.
+3. **Enforceable rules**: The `rules/` directory contains agent instructions.
+4. **Privacy-first**: All analysis stays local.
 
 ## Development Setup
 
