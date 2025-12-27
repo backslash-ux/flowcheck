@@ -7,9 +7,9 @@ from typing import Any
 
 from fastmcp import FastMCP
 
-from .core.git_analyzer import analyze_repo, NotAGitRepositoryError
-from .config.loader import load_config, update_config
-from .rules.engine import build_flow_state, generate_recommendations
+from flowcheck.core.git_analyzer import analyze_repo, NotAGitRepositoryError
+from flowcheck.config.loader import load_config, update_config
+from flowcheck.rules.engine import build_flow_state, generate_recommendations
 
 
 # Create the MCP server
