@@ -30,6 +30,8 @@ class FlowState:
     uncommitted_files: int
     branch_name: str
     status: Status
+    branch_age_days: int = 0
+    behind_main_by_commits: int = 0
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
@@ -39,6 +41,8 @@ class FlowState:
             "uncommitted_files": self.uncommitted_files,
             "branch_name": self.branch_name,
             "status": self.status.value,
+            "branch_age_days": self.branch_age_days,
+            "behind_main_by_commits": self.behind_main_by_commits,
         }
 
     @classmethod
@@ -50,4 +54,6 @@ class FlowState:
             uncommitted_files=data["uncommitted_files"],
             branch_name=data["branch_name"],
             status=Status(data["status"]),
+            branch_age_days=data.get("branch_age_days", 0),
+            behind_main_by_commits=data.get("behind_main_by_commits", 0),
         )

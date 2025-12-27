@@ -75,8 +75,46 @@ def get_minutes_since_last_commit(repo: Repo) -> int:
         now = datetime.now(tz=timezone.utc)
         delta = now - commit_time
         return int(delta.total_seconds() / 60)
-    except (ValueError, GitCommandError):
-        # No commits in repository
+    except (ValueError, GitCommandError, AttributeError):
+        # No commits or detached HEAD with no history
+        return 0
+
+
+def get_branch_age_days(repo: Repo) -> int:
+    """Calculate the age of the current branch in days.
+
+    Age is measured from the first commit that is only in this branch.
+    """
+    try:
+        # Get the timestamp of the very first commit in this branch
+        commits = list(repo.iter_commits(
+            rev=repo.active_branch.name, reverse=True, max_count=1))
+        if not commits:
+            return 0
+        first_commit_date = commits[0].committed_date
+        dt = datetime.fromtimestamp(first_commit_date, tz=timezone.utc)
+        delta = datetime.now(tz=timezone.utc) - dt
+        return max(0, delta.days)
+    except Exception:
+        return 0
+
+
+def get_commits_behind_main(repo: Repo) -> int:
+    """Check how many commits the current branch is behind 'main' or 'master'."""
+    try:
+        main_name = "main" if "main" in repo.heads else "master" if "master" in repo.heads else None
+        if not main_name or repo.active_branch.name == main_name:
+            return 0
+
+        # Get merge-base
+        base = repo.merge_base(repo.active_branch, repo.heads[main_name])
+        if not base:
+            return 0
+
+        # Count commits on main after base
+        behind = list(repo.iter_commits(f"{base[0]}..{main_name}"))
+        return len(behind)
+    except Exception:
         return 0
 
 
@@ -148,6 +186,8 @@ def analyze_repo(repo_path: str) -> dict:
         - minutes_since_last_commit: Minutes since last commit
         - uncommitted_files: Count of changed files
         - uncommitted_lines: Total lines changed
+        - branch_age_days: Age of branch in days
+        - behind_main_by_commits: Count of commits behind main
 
     Raises:
         NotAGitRepositoryError: If path is not a valid Git repository.
@@ -157,10 +197,14 @@ def analyze_repo(repo_path: str) -> dict:
     branch_name = get_current_branch(repo)
     minutes_since_last_commit = get_minutes_since_last_commit(repo)
     uncommitted_files, uncommitted_lines = get_uncommitted_stats(repo)
+    branch_age_days = get_branch_age_days(repo)
+    behind_main_by_commits = get_commits_behind_main(repo)
 
     return {
         "branch_name": branch_name,
         "minutes_since_last_commit": minutes_since_last_commit,
         "uncommitted_files": uncommitted_files,
         "uncommitted_lines": uncommitted_lines,
+        "branch_age_days": branch_age_days,
+        "behind_main_by_commits": behind_main_by_commits,
     }

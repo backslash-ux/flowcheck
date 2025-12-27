@@ -92,6 +92,20 @@ def generate_recommendations(
             f"Consider grouping related changes into separate commits."
         )
 
+    # Branch age recommendation
+    if flow_state.branch_age_days > 7:
+        recommendations.append(
+            f"🌿 This branch is {flow_state.branch_age_days} days old. "
+            f"Consider finishing up or merging to avoid long-lived branches."
+        )
+
+    # Main branch sync recommendation
+    if flow_state.behind_main_by_commits > 10:
+        recommendations.append(
+            f"🔄 You are behind main by {flow_state.behind_main_by_commits} commits. "
+            f"Consider merging main into your branch to stay up to date and avoid conflicts."
+        )
+
     # All good message
     if not recommendations:
         recommendations.append(
@@ -126,4 +140,6 @@ def build_flow_state(
         uncommitted_files=raw_metrics["uncommitted_files"],
         branch_name=raw_metrics["branch_name"],
         status=status,
+        branch_age_days=raw_metrics.get("branch_age_days", 0),
+        behind_main_by_commits=raw_metrics.get("behind_main_by_commits", 0),
     )
