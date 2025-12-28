@@ -48,9 +48,9 @@ The Qodo and Sunwood AI sources highlight that modern review tools must validate
 
 To make FlowCheck "Production-Grade" according to these new sources, the following must be added to the Roadmap:
 
-| Component            | Function                                                                                              | Source Justification                           |
-| :------------------- | :---------------------------------------------------------------------------------------------------- | :--------------------------------------------- |
-| **Sanitizer Proxy**  | Strips PII/Secrets and potential injection patterns from git diff outputs before MCP transmission.    | _Establishing a Production-Grade Safety Layer_ |
-| **Vector Indexer**   | Locally indexes commit messages and diffs to allow semantic queries (e.g., "Find similar refactors"). | _Semantic Gap Analysis_                        |
-| **OTel Emitter**     | Broadcasts `gen_ai` traces for every `get_recommendations` call to create an immutable audit trail.   | _OTel Standard_                                |
-| **Intent Validator** | Checks if the modified files align with the stated objective (Ticket/Issue ID).                       | _Qodo Insights_                                |
+| Component            | Function                                                                                              | Status  |
+| :------------------- | :---------------------------------------------------------------------------------------------------- | :------ |
+| **Sanitizer Proxy**  | Strips PII/Secrets and potential injection patterns from git diff outputs before MCP transmission.    | ✅ DONE |
+| **Vector Indexer**   | Locally indexes commit messages and diffs to allow semantic queries (e.g., "Find similar refactors"). | ✅ DONE |
+| **OTel Emitter**     | Broadcasts `gen_ai` traces for every `get_recommendations` call to create an immutable audit trail.   | ✅ DONE |
+| **Intent Validator** | Checks if the modified files align with the stated objective (GitHub Issue ID).                       | ✅ DONE |

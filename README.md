@@ -106,11 +106,11 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ### v0.1 Production Features
 
-| Tool               | Purpose                                              |
-| ------------------ | ---------------------------------------------------- |
-| `search_history`   | **Semantic search** - find commits by meaning        |
-| `verify_intent`    | **Ticket alignment** - validate against requirements |
-| `sanitize_content` | **PII/secret redaction** before sharing with AI      |
+| Tool               | Purpose                                                    |
+| ------------------ | ---------------------------------------------------------- |
+| `search_history`   | **Semantic search** - find commits by meaning              |
+| `verify_intent`    | **GitHub alignment** - validate against issue requirements |
+| `sanitize_content` | **PII/secret redaction** before sharing with AI            |
 
 ### Example: `get_flow_state`
 
@@ -164,14 +164,16 @@ FlowCheck uses `~/.flowcheck/config.json`:
 ```json
 {
   "max_minutes_without_commit": 60,
-  "max_lines_uncommitted": 500
+  "max_lines_uncommitted": 500,
+  "github_token": "your_token_here"
 }
 ```
 
-| Parameter                    | Default | Description                          |
-| ---------------------------- | ------- | ------------------------------------ |
-| `max_minutes_without_commit` | 60      | Minutes before suggesting checkpoint |
-| `max_lines_uncommitted`      | 500     | Lines before suggesting split        |
+| Parameter                    | Default | Description                                      |
+| ---------------------------- | ------- | ------------------------------------------------ |
+| `max_minutes_without_commit` | 60      | Minutes before suggesting checkpoint             |
+| `max_lines_uncommitted`      | 500     | Lines before suggesting split                    |
+| `github_token`               | `None`  | GitHub PAT (can also use `GITHUB_TOKEN` env var) |
 
 ## Status Levels
 

@@ -4,10 +4,10 @@ Based on the newly provided sources, particularly the insights from Qodo, Linear
 
 Current tools check syntax (linting) or hygiene (commit size), but they fail to check intent. Sources from Qodo highlight that most review delays stem from discrepancies between the code and the original requirement.
 
-- **The Feature**: `verify_intent(ticket_id, diff)`
-- **Function**: FlowCheck should ingest the requirements from a linked issue tracker (Jira, Linear, GitHub Issues) and semantically compare them against the current uncommitted diff.
-- **Value**: It flags "Scope Creep" (code changes unrelated to the ticket) or "Missing Criteria" (edge cases mentioned in the ticket but absent in the code).
-- **Implementation**: Use a local embedding model to map the ticket requirements to the code changes, ensuring the agent isn't "gold-plating" or hallucinating requirements.
+- **The Feature**: `verify_intent(ticket_id, repo_path)`
+- **Function**: FlowCheck ingests requirements from GitHub Issues and semantically compares them against the current uncommitted diff.
+- **Value**: It flags "Scope Creep" (code changes unrelated to the ticket) using a local TF-IDF similarity engine.
+- **Implementation**: [COMPLETED v0.1] - Uses GitHub API and local vectorization.
 
 ## 2. "Rework Rate" Tracking (Long-Term Mastery)
 
@@ -57,4 +57,4 @@ Community discussions reveal that installing multiple MCP servers can consume 25
 | **Rework Tracking**     | LinearB        | Measure if AI-generated code survives or gets deleted 21 days later.     |
 | **Adaptive Redaction**  | arXiv          | Context-aware PII stripping to prevent data leaks and injection attacks. |
 | **Audit Recorder**      | Prefactor      | Immutable logs of why an agent took a specific Git action.               |
-| **Semantic Search**     | Reddit         | Allow agents to find "similar past bugs" using vector search, not regex. |
+| **Semantic Search**     | Reddit         | [v0.1 DONE] Find "similar past bugs" using vector search, not regex.     |

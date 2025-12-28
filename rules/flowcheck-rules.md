@@ -44,13 +44,15 @@ Example: `search_history("authentication changes", repo_path)`
 
 ---
 
-## 4. `verify_intent` - Ticket Alignment
+## 4. `verify_intent` - GitHub Issue Alignment
 
 You `SHOULD` call this tool:
 
-- **Before completing a task** to verify alignment with requirements
-- **When scope seems to be expanding** beyond the original ticket
+- **Before completing a task** to verify alignment with GitHub issue requirements
+- **When scope seems to be expanding** beyond the original issue
 - **Before large refactors** to confirm they're in scope
+
+Example: `verify_intent(ticket_id="42", repo_path=".")`
 
 ---
 
@@ -102,8 +104,8 @@ Before starting work:
 5. Begin the requested task
 
 Before completing work:
-1. Call verify_intent(ticket_id) if applicable
-2. Call get_flow_state() to verify clean state
+1. Call verify_intent(ticket_id, repo_path) if applicable
+2. Call get_flow_state(repo_path) to verify clean state
 3. Suggest commit with descriptive message
 ```
 
