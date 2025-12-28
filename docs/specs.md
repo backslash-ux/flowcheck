@@ -24,8 +24,10 @@ The v0 architecture is comprised of four primary components that work in concert
 
 1. **Core Engine (Python)**: This is the backend logic, wrapping the Git CLI or libraries like gitpython, responsible for inspecting repositories and calculating raw metrics like commit timestamps and diff statistics.
 2. **Rules Engine**: This component contains a set of simple Python functions that map the quantitative metrics from the `flow_state` object to qualitative, human-readable suggestions based on user configuration.
-3. **MCP Server**: This is a wrapper around the engine that exposes the system's data and recommendations via standard MCP tools.
-4. **Configuration**: A local file that defines the user-specific thresholds that trigger warnings and suggestions.
+3. **Guardian Layer**: A security-focused component responsible for scanning diffs and content for PII, secrets, and prompt injection attempts before they leave the local environment.
+4. **Intent Layer**: A verification component that cross-references local code changes with external task definitions (e.g., GitHub Issues) to detect scope creep and ensure alignment.
+5. **MCP Server**: This is a wrapper around the engine that exposes the system's data and recommendations via standard MCP tools.
+6. **Configuration**: A local file that defines the user-specific thresholds that trigger warnings and suggestions.
 
 ### 2.2 Data Flow
 
@@ -41,27 +43,30 @@ The effectiveness of FlowCheck is rooted in its ability to transform low-level, 
 
 The v0 implementation of the Core Engine will observe the following raw signals from the local development environment.
 
-| Signal Source | Specific Data Point | Description |
-|---------------|---------------------|-------------|
-| Git | Current branch | The name of the currently active Git branch. |
-| Git | Time since last commit | The duration since the last commit was made in the current branch. |
-| Git | Number of changed files | The count of files that have been modified but not yet committed. |
-| Git | Total added/removed lines | A sum of line additions and deletions in the uncommitted diff. |
-| Session | System idle time | Optional: The duration of system inactivity or time since last keyboard input. |
-| Config | `max_minutes_without_commit` | A user-defined threshold for the maximum minutes before a nudge. |
-| Config | `max_lines_uncommitted` | A user-defined threshold for the maximum uncommitted lines before a nudge. |
+| Signal Source | Specific Data Point          | Description                                                                     |
+| ------------- | ---------------------------- | ------------------------------------------------------------------------------- |
+| Git           | Current branch               | The name of the currently active Git branch.                                    |
+| Git           | Time since last commit       | The duration since the last commit was made in the current branch.              |
+| Git           | Number of changed files      | The count of files that have been modified but not yet committed.               |
+| Git           | Total added/removed lines    | A sum of line additions and deletions in the uncommitted diff.                  |
+| Session       | System idle time             | Optional: The duration of system inactivity or time since last keyboard input.  |
+| Integration   | `ticket_id`                  | The ID of the task/issue currently being worked on (e.g., GitHub Issue ID).     |
+| Security      | Scan Results                 | Boolean flags for `pii_detected`, `secrets_detected`, and `injection_detected`. |
+| Config        | `max_minutes_without_commit` | A user-defined threshold for the maximum minutes before a nudge.                |
+| Config        | `max_lines_uncommitted`      | A user-defined threshold for the maximum uncommitted lines before a nudge.      |
 
 ### 3.2 Derived State Object: `flow_state`
 
 The Core Engine processes the input signals to produce a single, coherent `flow_state` object. This object represents the canonical "flow health" of the observed repository at a given moment.
 
-| Field | Data Type | Description |
-|-------|-----------|-------------|
-| `minutes_since_last_commit` | Integer | The number of minutes that have passed since the last commit. |
-| `uncommitted_lines` | Integer | The total number of lines added and removed in the current diff. |
-| `uncommitted_files` | Integer | The total number of files with uncommitted changes. |
-| `branch_name` | String | The name of the current Git branch. |
-| `status` | Enum | A qualitative indicator of flow health. Possible values are `"ok"` \| `"warning"` \| `"danger"`. |
+| Field                       | Data Type    | Description                                                                                                  |
+| --------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------ |
+| `minutes_since_last_commit` | Integer      | The number of minutes that have passed since the last commit.                                                |
+| `uncommitted_lines`         | Integer      | The total number of lines added and removed in the current diff.                                             |
+| `uncommitted_files`         | Integer      | The total number of files with uncommitted changes.                                                          |
+| `branch_name`               | String       | The name of the current Git branch.                                                                          |
+| `status`                    | Enum         | A qualitative indicator of flow health. Possible values are `"ok"` \| `"warning"` \| `"danger"`.             |
+| `security_flags`            | List[String] | A list of warnings regarding detected secrets, PII, or injection attempts (e.g., `["⚠️ SECRETS detected"]`). |
 
 **Note on Future Capabilities**: The architecture is designed to accommodate additional derived metrics in future versions. Optional fields planned for inclusion include `branch_age_days` and `behind_main_by_commits` to enable more advanced branch hygiene rules.
 
@@ -75,10 +80,10 @@ The system's configuration is managed via a local JSON file. The default locatio
 
 The v0 implementation supports the configuration of the following core thresholds, which are used by the Rules Engine to determine when to generate suggestions.
 
-| Parameter | Data Type | Description |
-|-----------|-----------|-------------|
-| `max_minutes_without_commit` | Integer | The number of minutes a developer can work without a commit before a warning is triggered. |
-| `max_lines_uncommitted` | Integer | The maximum size of an uncommitted diff (in lines) before a warning is triggered. |
+| Parameter                    | Data Type | Description                                                                                |
+| ---------------------------- | --------- | ------------------------------------------------------------------------------------------ |
+| `max_minutes_without_commit` | Integer   | The number of minutes a developer can work without a commit before a warning is triggered. |
+| `max_lines_uncommitted`      | Integer   | The maximum size of an uncommitted diff (in lines) before a warning is triggered.          |
 
 This configuration directly governs the behavior of the system, which is exposed through the following precise API contract.
 
@@ -92,8 +97,8 @@ The Model Context Protocol (MCP) tool interface is the primary contract between 
 
 **Parameters**:
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
+| Parameter   | Type   | Description                                          |
+| ----------- | ------ | ---------------------------------------------------- |
 | `repo_path` | String | The absolute or relative path to the Git repository. |
 
 **Return Value**: A JSON object representing the current `flow_state`.
@@ -104,8 +109,8 @@ The Model Context Protocol (MCP) tool interface is the primary contract between 
 
 **Parameters**:
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
+| Parameter   | Type   | Description                                          |
+| ----------- | ------ | ---------------------------------------------------- |
 | `repo_path` | String | The absolute or relative path to the Git repository. |
 
 **Return Value**: A JSON object containing a `recommendations` key, which holds an array of string-based suggestions.
@@ -117,6 +122,46 @@ The Model Context Protocol (MCP) tool interface is the primary contract between 
 **Parameters**: The tool accepts a `config` object. The precise schema for this object is out of scope for the v0 specification but conceptually allows clients to modify the rule thresholds used by the engine.
 
 This API provides a simple yet powerful foundation for building a wide range of practical applications on top of the FlowCheck safety layer.
+
+### 5.4 Tool: `search_history`
+
+**Purpose**: Performs a semantic search over the commit history using embedding-based retrieval (if available) or keyword search, allowing users to find "concepts" rather than just exact strings.
+
+**Parameters**:
+
+| Parameter   | Type    | Description                                                |
+| ----------- | ------- | ---------------------------------------------------------- |
+| `query`     | String  | The natural language search query (e.g., "auth refactor"). |
+| `repo_path` | String  | Path to the repository.                                    |
+| `top_k`     | Integer | (Optional) Number of results to return. Default: 5.        |
+
+**Return Value**: JSON object containing a list of matched commits with their metadata and relevance scores.
+
+### 5.5 Tool: `verify_intent`
+
+**Purpose**: Validates that the current uncommitted changes align with the stated goal of a specific ticket or issue. It acts as a check against scope creep.
+
+**Parameters**:
+
+| Parameter   | Type   | Description                                                                        |
+| ----------- | ------ | ---------------------------------------------------------------------------------- |
+| `ticket_id` | String | The identifier of the issue (e.g., GitHub Issue number).                           |
+| `repo_path` | String | Path to the repository.                                                            |
+| `context`   | String | (Optional) User-provided context or description of what they think they are doing. |
+
+**Return Value**: JSON object containing an `alignment_score` (0-1) and a list of warnings if the work appears unrelated to the ticket.
+
+### 5.6 Tool: `sanitize_content`
+
+**Purpose**: A utility for clients to redact sensitive information (secrets, PII) from text content _before_ sending it to an LLM or sharing it.
+
+**Parameters**:
+
+| Parameter | Type   | Description                       |
+| --------- | ------ | --------------------------------- |
+| `content` | String | The raw text content to sanitize. |
+
+**Return Value**: JSON object containing the `sanitized_text` and flags indicating what was redacted.
 
 ## 6.0 Rule Engine Logic (v0)
 

@@ -10,11 +10,11 @@ Unlike traditional tools that act as "traffic cops" by blocking actions or enfor
 
 To ensure adoption, FlowCheck occupies a unique niche as a "workflow hygiene coach," distinct from existing tools:
 
-| Category | Existing Solutions | FlowCheck's Differentiator |
-|----------|-------------------|---------------------------|
-| Commit Reminders | CLI tools (git-remind) or VS Code extensions that simply prompt on a timer. | Holistic Coach: Analyzes diff size, branch age, and complexity, not just time. It offers qualitative advice, not just alerts. |
-| Repo Health Tools | Hosted analyzers (e.g., NxCode, GitHub Insights) that rely on remote APIs and project-level scoring. | Local & Private: Operates purely offline. No telemetry or code leaves the machine, making it safe for enterprise use. |
-| Linters/Blockers | Pre-commit hooks that prevent actions until rules are met. | Non-Blocking: A "safety layer" that nudges. It never prevents a commit or push, preserving developer autonomy. |
+| Category          | Existing Solutions                                                                                   | FlowCheck's Differentiator                                                                                                    |
+| ----------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Commit Reminders  | CLI tools (git-remind) or VS Code extensions that simply prompt on a timer.                          | Holistic Coach: Analyzes diff size, branch age, and complexity, not just time. It offers qualitative advice, not just alerts. |
+| Repo Health Tools | Hosted analyzers (e.g., NxCode, GitHub Insights) that rely on remote APIs and project-level scoring. | Local & Private: Operates purely offline. No telemetry or code leaves the machine, making it safe for enterprise use.         |
+| Linters/Blockers  | Pre-commit hooks that prevent actions until rules are met.                                           | Non-Blocking: A "safety layer" that nudges. It never prevents a commit or push, preserving developer autonomy.                |
 
 ## 3. System Architecture (v0)
 
@@ -22,10 +22,12 @@ The v0 architecture is modular and local-first. It isolates the backend logic fr
 
 ### 3.1 Core Components
 
-1. **Core Engine (Python)**: The backend logic that wraps the Git CLI (or libraries like gitpython). It actively inspects repositories to calculate raw metrics, such as `git diff --shortstat` and commit timestamps.
-2. **Rules Engine**: A set of Python functions that map quantitative metrics (from the Core Engine) to qualitative, human-readable suggestions based on user configuration.
-3. **MCP Server**: A clean wrapper around the engine that exposes data via standard RPC-style interfaces (`get_flow_state`), avoiding any UI assumptions.
-4. **Configuration**: A local JSON file (default: `~/.flowcheck/config.json`) defining the user-specific thresholds that trigger warnings.
+1. **Core Engine**: Analyzes Git state (diffs, timestamps).
+2. **Rules Engine**: Applies hygiene policies (time/size thresholds).
+3. **Guardian Layer**: Scans for PII, secrets, and prompt injection triggers.
+4. **Intent Layer**: Connects to GitHub to verify ticket alignment.
+5. **MCP Server**: Exposes all logic via a unified RPC interface.
+6. **Configuration**: `~/.flowcheck/config.json`.
 
 ### 3.2 Data Flow
 
@@ -52,14 +54,14 @@ The Core Engine observes the following signals:
 
 The API returns a canonical object representing the repository's health:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `minutes_since_last_commit` | Integer | Minutes elapsed since the HEAD commit. |
-| `uncommitted_lines` | Integer | Sum of additions and deletions in the working tree. |
-| `uncommitted_files` | Integer | Count of modified/staged files. |
-| `branch_name` | String | Active Git branch. |
-| `status` | Enum | Qualitative health indicator: "ok", "warning", or "danger". |
-| *(Future v1 fields: `branch_age_days`, `behind_main_by_commits`)* | | |
+| Field                                                             | Type    | Description                                                 |
+| ----------------------------------------------------------------- | ------- | ----------------------------------------------------------- |
+| `minutes_since_last_commit`                                       | Integer | Minutes elapsed since the HEAD commit.                      |
+| `uncommitted_lines`                                               | Integer | Sum of additions and deletions in the working tree.         |
+| `uncommitted_files`                                               | Integer | Count of modified/staged files.                             |
+| `branch_name`                                                     | String  | Active Git branch.                                          |
+| `status`                                                          | Enum    | Qualitative health indicator: "ok", "warning", or "danger". |
+| _(Future v1 fields: `branch_age_days`, `behind_main_by_commits`)_ |         |                                                             |
 
 ### 4.3 Configuration Parameters
 
@@ -103,7 +105,12 @@ The v0 implementation focuses on Commit Hygiene using simple logic:
 - **Condition**: `uncommitted_lines > max_lines_uncommitted`
 - **Action**: Suggest splitting work into smaller commits or branches to avoid "monster PRs."
 
-*Future Rules (v1+): Detect stale branches (`branch_age > Y` days) or "Context Thrashing" (rapid file switching without edits).*
+### Security Nudge
+
+- **Condition**: `security_flags` is not empty (Secrets or PII detected).
+- **Action**: **CRITICAL WARNING**: "Sensitive data detected in diff. Do not commit or share until resolved." Prevents accidental leaks.
+
+_Future Rules (v1+): Detect stale branches (`branch_age > Y` days) or "Context Thrashing" (rapid file switching without edits)._
 
 ## 7. User Experience ("Vibe Coding")
 
@@ -123,9 +130,9 @@ The UX is designed to be a "quiet coach" that respects the developer's flow.
 
 ## 8. Roadmap
 
-- **Phase 1 (Current)**: Python MCP server, Git CLI integration, basic JSON schemas, and local config file.
-- **Phase 2**: Integration with editors (VS Code extension acting as MCP client) and terminal dashboards.
-    • Phase 3: Advanced heuristics (Context Thrashing detection) and AI-driven recommendations that draft the commit messages for you.
+- **Phase 1 (Complete)**: Python MCP server, Git CLI integration, Guardian (Security) layer, Intent (GitHub) layer.
+- **Phase 2 (Current)**: Integration with editors (VS Code extension acting as MCP client) to surface these signals in the UI.
+  • Phase 3: Advanced heuristics (Context Thrashing detection) and AI-driven recommendations that draft the commit messages for you.
 
 ---
 
