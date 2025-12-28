@@ -272,27 +272,27 @@ def search_history(query: str, repo_path: str, top_k: int = 5) -> dict[str, Any]
 
 
 @mcp.tool
-def verify_intent(ticket_id: str, context: str = "") -> dict[str, Any]:
+def verify_intent(ticket_id: str, repo_path: str, context: str = "") -> dict[str, Any]:
     """Validate current work against ticket requirements.
 
     Checks if code changes align with the stated ticket/task.
-    Flags scope creep and missing criteria.
-
-    Note: Full Jira/Linear integration coming in v0.2.
+    Flags scope creep using GitHub Issues integration.
 
     Args:
-        ticket_id: The ticket/issue ID (e.g., "PROJ-123").
+        ticket_id: The issue ID or ticket ID (e.g., "42").
+        repo_path: Path to the local repository.
         context: Optional description of current changes.
 
     Returns:
         Dictionary with alignment score and warnings.
     """
     try:
-        result = _verify_intent(ticket_id, context)
+        result = _verify_intent(ticket_id, repo_path, context)
 
         audit_logger.log(
             action="tool:verify_intent",
             ticket_id=ticket_id,
+            repo_path=repo_path,
             alignment_score=result.get("alignment_score", 0),
         )
 
