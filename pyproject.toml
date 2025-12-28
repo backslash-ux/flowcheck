@@ -8,11 +8,31 @@ version = "0.1.0"
 description = "A local MCP safety layer for developer workflow hygiene"
 readme = "README.md"
 requires-python = ">=3.10"
-license = "MIT"
 authors = [
-    { name = "FlowCheck Team" }
+    { name = "FlowCheck Team", email = "maintainers@flowcheck.dev" }
 ]
-keywords = ["mcp", "git", "developer-tools", "productivity"]
+license = "MIT"
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = ["mcp", "git", "developer-tools", "productivity", "security", "ai-safety", "agentic-workflow"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Version Control :: Git",
+    "Topic :: Security",
+    "Topic :: Software Development :: Quality Assurance",
+]
+
+[project.urls]
+Homepage = "https://github.com/backslash-ux/flowcheck"
+Documentation = "https://github.com/backslash-ux/flowcheck#readme"
+Repository = "https://github.com/backslash-ux/flowcheck.git"
+Issues = "https://github.com/backslash-ux/flowcheck/issues"
+Changelog = "https://github.com/backslash-ux/flowcheck/blob/main/CHANGELOG.md"
 
 dependencies = [
     "fastmcp>=2.0",

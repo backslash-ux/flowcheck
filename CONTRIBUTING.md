@@ -64,7 +64,18 @@ src/flowcheck/
 ├── server.py         # FastMCP server with MCP tools
 ├── core/
 │   ├── models.py     # Data models (FlowState, Status)
-│   └── git_analyzer.py  # Git repository analysis
+│   └── git_analyzer.py # Git repository analysis
+├── guardian/         # [v0.1] Security Layer
+│   ├── sanitizer.py  # PII/Secret detection
+│   └── injection_filter.py # Prompt injection defense
+├── semantic/         # [v0.1] Semantic Search Layer
+│   ├── indexer.py    # TF-IDF Vectorizer & SQLite
+│   └── search.py     # Cosine similarity logic
+├── intent/           # [v0.1] Intent Validation Layer
+│   └── validator.py  # GitHub Issue alignment
+├── telemetry/        # [v0.1] Observability Layer
+│   ├── otel_emitter.py # OpenTelemetry traces
+│   └── audit_logger.py # Immutable audit logs
 ├── rules/
 │   └── engine.py     # Recommendation logic
 └── config/
