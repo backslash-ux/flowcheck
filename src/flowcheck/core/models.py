@@ -1,6 +1,6 @@
 """Data models for FlowCheck flow state."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
@@ -32,6 +32,10 @@ class FlowState:
     status: Status
     branch_age_days: int = 0
     behind_main_by_commits: int = 0
+    # v0.1 additions
+    security_flags: list[str] = field(default_factory=list)
+    ticket_alignment: float = 0.0  # 0.0-1.0, stub for v0.1
+    rework_rate: float = 0.0  # 0.0-1.0, stub for v0.1
 
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
@@ -43,6 +47,9 @@ class FlowState:
             "status": self.status.value,
             "branch_age_days": self.branch_age_days,
             "behind_main_by_commits": self.behind_main_by_commits,
+            "security_flags": self.security_flags,
+            "ticket_alignment": self.ticket_alignment,
+            "rework_rate": self.rework_rate,
         }
 
     @classmethod
@@ -56,4 +63,7 @@ class FlowState:
             status=Status(data["status"]),
             branch_age_days=data.get("branch_age_days", 0),
             behind_main_by_commits=data.get("behind_main_by_commits", 0),
+            security_flags=data.get("security_flags", []),
+            ticket_alignment=data.get("ticket_alignment", 0.0),
+            rework_rate=data.get("rework_rate", 0.0),
         )
