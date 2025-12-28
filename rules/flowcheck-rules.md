@@ -1,55 +1,121 @@
 # FlowCheck Rules for AI Agents
 
-> **This file instructs AI agents to enforce Git hygiene during agentic coding sessions.**
+> **This file instructs AI agents to enforce Git hygiene and security during agentic coding sessions.**
 
 ## FlowCheck MCP Tools
 
-You are given tools from the FlowCheck MCP server for maintaining Git hygiene. You `MUST` follow these rules:
+You are given tools from the FlowCheck MCP server. You `MUST` follow these rules:
 
-## 1. `get_flow_state`
+---
+
+## 1. `get_flow_state` - Health Check
 
 You `MUST` call this tool:
 
-- **Before starting any new task** to assess current repository health
-- **Before making commits** to understand the scope of changes
-- **Periodically during long coding sessions** (every 15-20 tool calls)
-- **When resuming work** on a repository after any interruption
+- **Before starting any new task** to assess repository health
+- **Before making commits** to check for security flags
+- **Periodically during long sessions** (every 15-20 tool calls)
+- **When resuming work** after any interruption
 
-## 2. `get_recommendations`
+**Critical**: If `security_flags` is non-empty, you `MUST NOT` proceed until issues are addressed.
+
+---
+
+## 2. `get_recommendations` - Actionable Guidance
 
 You `MUST` call this tool:
 
 - **When `get_flow_state` returns status `warning` or `danger`**
-- **Before proposing large refactors** to check if changes should be split
-- **At the end of each major task** to ensure clean commit hygiene
-- **When uncommitted lines exceed 300** to get guidance on splitting work
+- **When `security_flags` contains any items**
+- **Before proposing large refactors**
+- **When uncommitted lines exceed 300**
 
-## 3. `set_rules`
+---
+
+## 3. `search_history` - Semantic Context
+
+You `SHOULD` call this tool:
+
+- **Before implementing features** to find similar past solutions
+- **When debugging** to find how issues were fixed before
+- **Instead of `git log`** when searching by concept, not keywords
+
+Example: `search_history("authentication changes", repo_path)`
+
+---
+
+## 4. `verify_intent` - Ticket Alignment
+
+You `SHOULD` call this tool:
+
+- **Before completing a task** to verify alignment with requirements
+- **When scope seems to be expanding** beyond the original ticket
+- **Before large refactors** to confirm they're in scope
+
+---
+
+## 5. `sanitize_content` - Security Redaction
+
+You `MUST` call this tool:
+
+- **Before including file contents in outputs** if they may contain secrets
+- **Before sharing code snippets** that haven't been security-scanned
+- **When working with config files** that may contain credentials
+
+---
+
+## 6. `set_rules` - Configuration
 
 You `MAY` call this tool when:
 
 - The user explicitly requests different thresholds
 - Working on a codebase with specific commit policies
 
+---
+
 ## Enforcement Behavior
 
-When FlowCheck reports `warning` or `danger` status, you `MUST`:
+### When status is `warning` or `danger`:
 
-1. **Pause new feature work** and address the hygiene issue first
-2. **Suggest a checkpoint commit** if time threshold is exceeded
-3. **Propose splitting changes** if line count threshold is exceeded
-4. **Inform the user** of the flow health status and your recommendation
+1. **Pause new feature work** - address hygiene first
+2. **Suggest checkpoint commit** if time threshold exceeded
+3. **Propose splitting changes** if line count exceeded
+4. **Inform the user** of flow health status
 
-## Example Integration
+### When `security_flags` is non-empty:
+
+1. **STOP** - do not proceed with commits
+2. **Review** the flagged content for secrets/PII
+3. **Use `sanitize_content`** to redact sensitive data
+4. **Alert the user** about potential security issues
+
+---
+
+## Example Workflow
 
 ```
 Before starting work:
 1. Call get_flow_state(repo_path)
-2. If status is not "ok", call get_recommendations(repo_path)
-3. Address any hygiene issues before proceeding
-4. Begin the requested task
+2. Check security_flags - if non-empty, address immediately
+3. If status != "ok", call get_recommendations(repo_path)
+4. Call search_history() for relevant context
+5. Begin the requested task
+
+Before completing work:
+1. Call verify_intent(ticket_id) if applicable
+2. Call get_flow_state() to verify clean state
+3. Suggest commit with descriptive message
 ```
+
+---
 
 ## Philosophy
 
-FlowCheck is a "smart fitness watch" for coding—it nudges, never blocks. But as an AI agent, you should treat these nudges as **strong recommendations** to maintain a clean, reviewable Git history that humans can easily understand and audit.
+FlowCheck is a "defense-in-depth" safety layer:
+
+- **Hygiene nudges** keep commits small and reviewable
+- **Security scanning** prevents accidental secret/PII leaks
+- **Semantic search** reduces duplicate work and hallucinations
+- **Intent validation** ensures code matches requirements
+
+As an AI agent, treat FlowCheck warnings as **strong recommendations** to maintain a clean, secure, auditable Git history.
