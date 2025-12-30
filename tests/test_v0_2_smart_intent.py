@@ -84,9 +84,8 @@ class TestSmartIntent(unittest.TestCase):
 
         # Should return a result (not None) from fallback path
         self.assertIsNotNone(result)
-        # Fallback doesn't use reasoning field (empty)
-        # Note: In my implementation, I initialized reasoning="" in data class
-        self.assertEqual(result.reasoning, "")
+        # Fallback now includes reasoning
+        self.assertIn("Fallback to TF-IDF", result.reasoning)
         self.assertGreater(result.alignment_score, 0)
 
 

@@ -144,6 +144,9 @@ class IntentValidator:
             )
         except Exception as e:
             # Fallback to local heuristic if LLM fails
+            # We return None to trigger the fallback path in validate()
+            # But we print the error for server logs
+            print(f"[SmartIntent] LLM Error: {e}")
             return None
 
     def validate(
@@ -195,6 +198,8 @@ class IntentValidator:
                 ticket_id, issue_title, issue_body, diff_content)
             if llm_result:
                 return llm_result
+            # If we fall through here, LLM failed. We should ideally capture why.
+            # For now, the fallback result below will be returned, which currently has empty reasoning.
         # ----------------
 
         # --- LOCAL FALLBACK PATH (TF-IDF) ---
@@ -225,6 +230,7 @@ class IntentValidator:
             ticket_summary=issue_title,
             scope_creep_warnings=warnings,
             is_aligned=score >= 0.3 or not warnings,  # Lower threshold for v0.1
+            reasoning="[Fallback to TF-IDF] LLM not configured or failed. Using heuristic comparison." if self.llm_client else ""
         )
 
 
