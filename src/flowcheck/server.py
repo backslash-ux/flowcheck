@@ -13,7 +13,7 @@ from typing import Any, Optional
 from fastmcp import FastMCP
 
 from flowcheck.core.git_analyzer import analyze_repo, NotAGitRepositoryError
-from flowcheck.config.loader import load_config, update_config
+from flowcheck.config.loader import load_config, load_config_with_warnings, update_config
 from flowcheck.rules.engine import build_flow_state, generate_recommendations
 from flowcheck.guardian.sanitizer import Sanitizer
 from flowcheck.guardian.injection_filter import InjectionFilter
@@ -87,7 +87,7 @@ def get_flow_state(repo_path: str) -> dict[str, Any]:
         Dictionary containing flow state metrics.
     """
     try:
-        config = load_config(repo_path=repo_path)
+        config, warnings = load_config_with_warnings(repo_path=repo_path)
         raw_metrics = analyze_repo(repo_path)
         flow_state = build_flow_state(raw_metrics, config)
 
@@ -102,6 +102,8 @@ def get_flow_state(repo_path: str) -> dict[str, Any]:
             pass
 
         result = flow_state.to_dict()
+        if warnings:
+            result["config_warnings"] = warnings
 
         # Log to audit trail
         audit_logger.log_tool_call("get_flow_state", repo_path, result)
