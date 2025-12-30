@@ -33,37 +33,52 @@ def ensure_config_dir() -> Path:
     return DEFAULT_CONFIG_DIR
 
 
-def load_config(config_path: Path | str | None = None) -> dict[str, Any]:
-    """Load configuration from file.
+def load_config(config_path: Path | str | None = None, repo_path: Path | str | None = None) -> dict[str, Any]:
+    """Load configuration from file, optionally merging with repo-specific config.
 
-    If the config file doesn't exist, creates it with default values.
+    Priority (lowest to highest):
+    1. Default values
+    2. Global config (~/.flowcheck/config.json)
+    3. Repo config (repo_path/.flowcheck.json)
+
+    If the global config file doesn't exist, creates it with default values.
 
     Args:
-        config_path: Optional custom path to config file.
+        config_path: Optional custom path to global config file.
+        repo_path: Optional path to repository to check for .flowcheck.json.
 
     Returns:
         Dictionary with configuration values.
     """
     path = Path(config_path) if config_path else DEFAULT_CONFIG_PATH
 
+    # 1. Defaults
+    config = get_default_config()
+
+    # 2. Global Config
     if not path.exists():
-        # Create default config
-        config = get_default_config()
+        # Create default global config
         save_config(config, path)
-        return config
+    else:
+        try:
+            with open(path, "r") as f:
+                global_config = json.load(f)
+                config.update(global_config)
+        except (json.JSONDecodeError, IOError):
+            pass  # Keep defaults on error
 
-    try:
-        with open(path, "r") as f:
-            user_config = json.load(f)
+    # 3. Repo Config
+    if repo_path:
+        repo_config_path = Path(repo_path) / ".flowcheck.json"
+        if repo_config_path.exists():
+            try:
+                with open(repo_config_path, "r") as f:
+                    repo_config = json.load(f)
+                    config.update(repo_config)
+            except (json.JSONDecodeError, IOError):
+                pass
 
-        # Merge with defaults to ensure all keys exist
-        config = get_default_config()
-        config.update(user_config)
-        return config
-
-    except (json.JSONDecodeError, IOError) as e:
-        # Return defaults on error
-        return get_default_config()
+    return config
 
 
 def save_config(config: dict[str, Any], config_path: Path | str | None = None) -> None:

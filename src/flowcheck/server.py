@@ -87,7 +87,7 @@ def get_flow_state(repo_path: str) -> dict[str, Any]:
         Dictionary containing flow state metrics.
     """
     try:
-        config = load_config()
+        config = load_config(repo_path=repo_path)
         raw_metrics = analyze_repo(repo_path)
         flow_state = build_flow_state(raw_metrics, config)
 
@@ -135,7 +135,7 @@ def get_recommendations(repo_path: str) -> dict[str, Any]:
         Dictionary containing recommendations and status.
     """
     try:
-        config = load_config()
+        config = load_config(repo_path=repo_path)
         raw_metrics = analyze_repo(repo_path)
         flow_state = build_flow_state(raw_metrics, config)
         recommendations = generate_recommendations(flow_state, config)
@@ -294,6 +294,7 @@ def verify_intent(ticket_id: str, repo_path: str, context: str = "") -> dict[str
             ticket_id=ticket_id,
             repo_path=repo_path,
             alignment_score=result.get("alignment_score", 0),
+            reasoning=result.get("reasoning", ""),
         )
 
         return result

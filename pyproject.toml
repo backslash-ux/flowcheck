@@ -12,8 +12,6 @@ authors = [
     { name = "FlowCheck Team", email = "maintainers@flowcheck.dev" }
 ]
 license = "MIT"
-readme = "README.md"
-requires-python = ">=3.10"
 keywords = ["mcp", "git", "developer-tools", "productivity", "security", "ai-safety", "agentic-workflow"]
 classifiers = [
     "Development Status :: 4 - Beta",
