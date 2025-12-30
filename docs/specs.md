@@ -76,9 +76,13 @@ This clearly defined data model provides the structured output that is exposed v
 
 Configuration is a key element of FlowCheck's design, making it a personal and non-intrusive tool. By allowing developers to define their own thresholds, the system's nudges can be aligned with an individual's personal workflow and tolerance, a concept referred to as "vibe coding." This configurability is core to the philosophy that FlowCheck is a "lightweight and personal" tool, not a "team policy engine," ensuring it remains a helpful coach rather than a source of unwanted noise.
 
-The system's configuration is managed via a local JSON file. The default location for this file is `~/.flowcheck/config.json`.
+The system's configuration is managed via a hierarchical system (v0.2):
 
-The v0 implementation supports the configuration of the following core thresholds, which are used by the Rules Engine to determine when to generate suggestions.
+1. **Repo Config**: `.flowcheck.json` in the repository root (highest priority).
+2. **Global Config**: `~/.flowcheck/config.json` (user defaults).
+3. **Internal Defaults**.
+
+The v0 implementation supports the following core thresholds:
 
 | Parameter                    | Data Type | Description                                                                                |
 | ---------------------------- | --------- | ------------------------------------------------------------------------------------------ |
@@ -141,6 +145,11 @@ This API provides a simple yet powerful foundation for building a wide range of 
 
 **Purpose**: Validates that the current uncommitted changes align with the stated goal of a specific ticket or issue. It acts as a check against scope creep.
 
+**Modes**:
+
+- **Smart Mode (v0.2)**: Uses an LLM (OpenAI) to reason about code changes vs ticket requirements.
+- **Heuristic Mode (v0.1)**: Uses TF-IDF cosine similarity as a fallback.
+
 **Parameters**:
 
 | Parameter   | Type   | Description                                                                        |
@@ -149,7 +158,7 @@ This API provides a simple yet powerful foundation for building a wide range of 
 | `repo_path` | String | Path to the repository.                                                            |
 | `context`   | String | (Optional) User-provided context or description of what they think they are doing. |
 
-**Return Value**: JSON object containing an `alignment_score` (0-1) and a list of warnings if the work appears unrelated to the ticket.
+**Return Value**: JSON object containing an `alignment_score`, `scope_creep_warnings`, and (in v0.2) `reasoning` explaining the verdict.
 
 ### 5.6 Tool: `sanitize_content`
 
