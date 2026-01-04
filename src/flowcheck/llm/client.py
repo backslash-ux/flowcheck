@@ -75,7 +75,12 @@ class OpenAIClient(LLMClient):
 
 
 def get_llm_client(config: dict[str, Any]) -> Optional[LLMClient]:
-    """Factory to create LLM client from config."""
+    """Factory to create LLM client from config.
+    
+    Supported providers:
+    - "openai": OpenAI or OpenAI-compatible APIs
+    - "anthropic": Anthropic Claude models
+    """
     intent_config = config.get("intent", {})
     provider = intent_config.get("provider")
 
@@ -94,6 +99,19 @@ def get_llm_client(config: dict[str, Any]) -> Optional[LLMClient]:
             base_url=intent_config.get("base_url", "https://api.openai.com/v1")
         )
 
-    # We can add 'anthropic' here later as requested in roadmap
+    if provider == "anthropic":
+        from .anthropic_client import AnthropicClient
+        
+        api_key = os.environ.get(intent_config.get(
+            "api_key_env", "ANTHROPIC_API_KEY"))
+        if not api_key:
+            return None  # Fallback to local
+
+        return AnthropicClient(
+            api_key=api_key,
+            model=intent_config.get("model", "claude-sonnet-4-20250514"),
+            base_url=intent_config.get("base_url", "https://api.anthropic.com/v1"),
+            max_tokens=intent_config.get("max_tokens", 1024),
+        )
 
     return None
