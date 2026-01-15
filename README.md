@@ -175,9 +175,89 @@ legacy/
 - **SQLite Storage**: Local index in `~/.flowcheck/semantic_index.db`
 - Find commits by meaning, not just keywords
 
+## Installation & Deployment
+
+### Option 1: Docker (Recommended)
+
+Get FlowCheck running in 30 seconds:
+
+```bash
+# Clone and setup
+git clone https://github.com/backslash-ux/flowcheck.git
+cd flowcheck
+
+# Configure environment
+cp .env.example .env
+nano .env  # Add your API keys
+
+# Start the stack
+docker-compose up
+```
+
+FlowCheck is now running at `http://localhost:8000`
+
+**See [Docker Deployment Guide](docs/deployment/Docker.md) for:**
+- Local development setup
+- Production deployment
+- Image variants (production/slim/dev)
+- Troubleshooting
+
+### Option 2: Python Package
+
+```bash
+pip install git+https://github.com/backslash-ux/flowcheck.git
+
+# Set environment variables
+export ANTHROPIC_API_KEY=sk-ant-xxxxx
+
+# Start server
+flowcheck-server
+```
+
+### Option 3: From Source
+
+```bash
+git clone https://github.com/backslash-ux/flowcheck.git
+cd flowcheck
+
+# Create virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Install in development mode
+pip install -e ".[dev]"
+
+# Run tests
+pytest tests/
+
+# Start server
+flowcheck-server
+```
+
+## Deployment
+
+FlowCheck supports multiple deployment models:
+
+| Scenario | Time | Guide |
+|----------|------|-------|
+| **Local Development** | 5 min | [Docker](docs/deployment/Docker.md) |
+| **Production (Docker)** | 10 min | [Docker.md](docs/deployment/Docker.md#production-deployment) |
+| **Kubernetes** | 30 min | [Kubernetes.md](docs/deployment/Kubernetes.md) |
+| **CI/CD Integration** | 15 min | [CI-CD.md](docs/deployment/CI-CD.md) |
+
+👉 **[Deployment Guide](docs/deployment/README.md)** for full options
+
 ## Development
 
 ```bash
+# Setup development environment
+docker-compose -f docker-compose.dev.yml up
+
+# Or use Python venv
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+
 # Run tests
 pytest tests/ -v
 
