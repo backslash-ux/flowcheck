@@ -16,7 +16,7 @@ FlowCheck is built for **agentic coding workflows**—AI assistants that write c
 1. **Clone the repository:**
 
    ```bash
-   git clone https://github.com/your-org/flowcheck.git
+   git clone https://github.com/backslash-ux/flowcheck.git
    cd flowcheck
    ```
 

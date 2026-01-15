@@ -16,7 +16,7 @@ _Git hygiene monitoring + Security scanning + Semantic search + Full observabili
 
 ## Why FlowCheck?
 
-AI coding assistants are incredibly productive—but they can also create **massive, hard-to-review changesets** and **security risks**. FlowCheck v0.1 is a production-grade safety layer that:
+AI coding assistants are incredibly productive—but they can also create **massive, hard-to-review changesets** and **security risks**. FlowCheck is a production-grade safety layer that:
 
 - 🔍 **Monitors Git state** in real-time during AI-assisted coding
 - 🔒 **Scans for security issues** (PII, secrets, prompt injection attacks)
@@ -68,7 +68,7 @@ This instructs AI agents to **automatically check Git hygiene** before starting 
 ### Installation
 
 ```bash
-git clone https://github.com/your-org/flowcheck.git
+git clone https://github.com/backslash-ux/flowcheck.git
 cd flowcheck
 
 python3 -m venv .venv
@@ -155,7 +155,7 @@ tests/fixtures/
 legacy/
 ```
 
-## Security Features (v0.1)
+## Security Features
 
 ### Guardian Layer
 
