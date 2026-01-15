@@ -5,6 +5,7 @@ A production-grade MCP safety layer for AI-first development with:
 - Security scanning (PII/secrets, injection detection)
 - Semantic history search
 - Intent validation
+- Session management for audit correlation
 - Full observability (OTel traces, audit logs)
 """
 
@@ -13,19 +14,21 @@ from typing import Any, Optional
 from fastmcp import FastMCP
 
 from flowcheck.core.git_analyzer import analyze_repo, NotAGitRepositoryError
-from flowcheck.config.loader import load_config, update_config
+from flowcheck.config.loader import load_config, load_config_with_warnings, update_config
 from flowcheck.rules.engine import build_flow_state, generate_recommendations
 from flowcheck.guardian.sanitizer import Sanitizer
 from flowcheck.guardian.injection_filter import InjectionFilter
 from flowcheck.telemetry.audit_logger import get_audit_logger
 from flowcheck.semantic.search import search_history_semantically
 from flowcheck.intent import verify_intent as _verify_intent
+from flowcheck.session import get_session_manager
 
 
 # Initialize components
 sanitizer = Sanitizer()
 injection_filter = InjectionFilter()
 audit_logger = get_audit_logger()
+session_manager = get_session_manager()
 
 
 # Create the MCP server
@@ -39,12 +42,14 @@ mcp = FastMCP(
     - Security scanning (PII/secrets detection, prompt injection filtering)
     - Semantic history search (find commits by meaning, not just keywords)
     - Intent validation (ticket-to-diff alignment)
+    - Session management (correlate tool calls for auditing)
     
     REQUIRED Usage:
-    1. Call get_flow_state BEFORE starting any task
-    2. If status is 'warning' or 'danger', address hygiene issues first
-    3. NEVER include data flagged in security_flags in outputs
-    4. Use search_history_semantically for historical context
+    1. Call start_session at the beginning of a task for audit correlation
+    2. Call get_flow_state BEFORE starting any code changes
+    3. If status is 'warning' or 'danger', address hygiene issues first
+    4. NEVER include data flagged in security_flags in outputs
+    5. Use search_history for historical context
     """,
 )
 
@@ -87,7 +92,7 @@ def get_flow_state(repo_path: str) -> dict[str, Any]:
         Dictionary containing flow state metrics.
     """
     try:
-        config = load_config()
+        config, warnings = load_config_with_warnings(repo_path=repo_path)
         raw_metrics = analyze_repo(repo_path)
         flow_state = build_flow_state(raw_metrics, config)
 
@@ -102,6 +107,8 @@ def get_flow_state(repo_path: str) -> dict[str, Any]:
             pass
 
         result = flow_state.to_dict()
+        if warnings:
+            result["config_warnings"] = warnings
 
         # Log to audit trail
         audit_logger.log_tool_call("get_flow_state", repo_path, result)
@@ -135,7 +142,7 @@ def get_recommendations(repo_path: str) -> dict[str, Any]:
         Dictionary containing recommendations and status.
     """
     try:
-        config = load_config()
+        config = load_config(repo_path=repo_path)
         raw_metrics = analyze_repo(repo_path)
         flow_state = build_flow_state(raw_metrics, config)
         recommendations = generate_recommendations(flow_state, config)
@@ -294,6 +301,7 @@ def verify_intent(ticket_id: str, repo_path: str, context: str = "") -> dict[str
             ticket_id=ticket_id,
             repo_path=repo_path,
             alignment_score=result.get("alignment_score", 0),
+            reasoning=result.get("reasoning", ""),
         )
 
         return result
@@ -327,8 +335,10 @@ def sanitize_content(content: str) -> dict[str, Any]:
             "redacted_count": len(result.redacted_items),
         }
 
+        session_manager.record_tool_call()
         audit_logger.log(
             action="tool:sanitize_content",
+            session_id=session_manager.get_session_id(),
             pii_detected=result.pii_detected,
             secrets_detected=result.secrets_detected,
             redacted_count=len(result.redacted_items),
@@ -338,6 +348,102 @@ def sanitize_content(content: str) -> dict[str, Any]:
     except Exception as e:
         return {
             "error": f"Failed to sanitize content: {str(e)}",
+        }
+
+
+@mcp.tool
+def start_session(agent_id: str = "") -> dict[str, Any]:
+    """Start a new FlowCheck session for audit correlation.
+
+    Sessions help correlate tool calls across a task for auditing.
+    Call this at the beginning of a task.
+
+    Args:
+        agent_id: Optional identifier for the agent (e.g., "claude", "cursor").
+
+    Returns:
+        Dictionary with session information.
+    """
+    try:
+        session = session_manager.start_session(agent_id=agent_id)
+
+        audit_logger.log(
+            action="tool:start_session",
+            session_id=session.session_id,
+            agent_id=session.agent_id,
+        )
+
+        return {
+            "session_id": session.session_id,
+            "agent_id": session.agent_id,
+            "started_at": session.started_at.isoformat(),
+            "message": "Session started. All subsequent tool calls will be correlated.",
+        }
+    except Exception as e:
+        return {
+            "error": f"Failed to start session: {str(e)}",
+        }
+
+
+@mcp.tool
+def get_session_info() -> dict[str, Any]:
+    """Get information about the current session.
+
+    Returns session statistics including:
+    - session_id: Unique session identifier
+    - tool_calls: Number of tool calls in this session
+    - duration_seconds: Session duration
+
+    Returns:
+        Dictionary with session information.
+    """
+    try:
+        info = session_manager.get_session_info()
+        return info
+    except Exception as e:
+        return {
+            "error": f"Failed to get session info: {str(e)}",
+        }
+
+
+@mcp.tool
+def end_session() -> dict[str, Any]:
+    """End the current FlowCheck session.
+
+    Call this at the end of a task to finalize audit records.
+
+    Returns:
+        Dictionary with final session statistics.
+    """
+    try:
+        session = session_manager.end_session()
+
+        if session:
+            audit_logger.log(
+                action="tool:end_session",
+                session_id=session.session_id,
+                agent_id=session.agent_id,
+                tool_calls=session.tool_calls,
+                duration_seconds=int(
+                    (session.last_activity - session.started_at).total_seconds()
+                ),
+            )
+
+            return {
+                "session_id": session.session_id,
+                "tool_calls": session.tool_calls,
+                "duration_seconds": int(
+                    (session.last_activity - session.started_at).total_seconds()
+                ),
+                "message": "Session ended successfully.",
+            }
+        else:
+            return {
+                "message": "No active session to end.",
+            }
+    except Exception as e:
+        return {
+            "error": f"Failed to end session: {str(e)}",
         }
 
 

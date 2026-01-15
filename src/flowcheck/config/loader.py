@@ -33,37 +33,53 @@ def ensure_config_dir() -> Path:
     return DEFAULT_CONFIG_DIR
 
 
-def load_config(config_path: Path | str | None = None) -> dict[str, Any]:
-    """Load configuration from file.
-
-    If the config file doesn't exist, creates it with default values.
-
-    Args:
-        config_path: Optional custom path to config file.
+def load_config_with_warnings(config_path: Path | str | None = None, repo_path: Path | str | None = None) -> tuple[dict[str, Any], list[str]]:
+    """Load configuration with warnings for malformed files.
 
     Returns:
-        Dictionary with configuration values.
+        Tuple of (config_dict, list_of_warning_strings)
     """
     path = Path(config_path) if config_path else DEFAULT_CONFIG_PATH
+    warnings = []
 
+    # 1. Defaults
+    config = get_default_config()
+
+    # 2. Global Config
     if not path.exists():
-        # Create default config
-        config = get_default_config()
         save_config(config, path)
-        return config
+    else:
+        try:
+            with open(path, "r") as f:
+                global_config = json.load(f)
+                config.update(global_config)
+        except json.JSONDecodeError as e:
+            warnings.append(f"Global config malformed ({path}): {str(e)}")
+        except IOError as e:
+            warnings.append(f"Global config unreadable ({path}): {str(e)}")
 
-    try:
-        with open(path, "r") as f:
-            user_config = json.load(f)
+    # 3. Repo Config
+    if repo_path:
+        repo_config_path = Path(repo_path) / ".flowcheck.json"
+        if repo_config_path.exists():
+            try:
+                with open(repo_config_path, "r") as f:
+                    repo_config = json.load(f)
+                    config.update(repo_config)
+            except json.JSONDecodeError as e:
+                warnings.append(
+                    f"Repo config malformed ({repo_config_path}): {str(e)}")
+            except IOError as e:
+                warnings.append(
+                    f"Repo config unreadable ({repo_config_path}): {str(e)}")
 
-        # Merge with defaults to ensure all keys exist
-        config = get_default_config()
-        config.update(user_config)
-        return config
+    return config, warnings
 
-    except (json.JSONDecodeError, IOError) as e:
-        # Return defaults on error
-        return get_default_config()
+
+def load_config(config_path: Path | str | None = None, repo_path: Path | str | None = None) -> dict[str, Any]:
+    """Load configuration from file (Backwards compatibility wrapper)."""
+    config, _ = load_config_with_warnings(config_path, repo_path)
+    return config
 
 
 def save_config(config: dict[str, Any], config_path: Path | str | None = None) -> None:

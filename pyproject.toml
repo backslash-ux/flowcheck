@@ -4,16 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "flowcheck"
-version = "0.1.0"
+version = "0.3.0"
 description = "A local MCP safety layer for developer workflow hygiene"
-readme = "README.md"
 requires-python = ">=3.10"
 authors = [
     { name = "FlowCheck Team", email = "maintainers@flowcheck.dev" }
 ]
 license = "MIT"
-readme = "README.md"
-requires-python = ">=3.10"
 keywords = ["mcp", "git", "developer-tools", "productivity", "security", "ai-safety", "agentic-workflow"]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -27,17 +24,17 @@ classifiers = [
     "Topic :: Software Development :: Quality Assurance",
 ]
 
+dependencies = [
+    "fastmcp>=2.0",
+    "gitpython>=3.1",
+]
+
 [project.urls]
 Homepage = "https://github.com/backslash-ux/flowcheck"
 Documentation = "https://github.com/backslash-ux/flowcheck#readme"
 Repository = "https://github.com/backslash-ux/flowcheck.git"
 Issues = "https://github.com/backslash-ux/flowcheck/issues"
 Changelog = "https://github.com/backslash-ux/flowcheck/blob/main/CHANGELOG.md"
-
-dependencies = [
-    "fastmcp>=2.0",
-    "gitpython>=3.1",
-]
 
 [project.optional-dependencies]
 dev = [
@@ -47,7 +44,8 @@ dev = [
 ]
 
 [project.scripts]
-flowcheck = "flowcheck.server:main"
+flowcheck = "flowcheck.cli:main"
+flowcheck-server = "flowcheck.server:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/flowcheck"]

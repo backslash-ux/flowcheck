@@ -131,8 +131,11 @@ The UX is designed to be a "quiet coach" that respects the developer's flow.
 ## 8. Roadmap
 
 - **Phase 1 (Complete)**: Python MCP server, Git CLI integration, Guardian (Security) layer, Intent (GitHub) layer.
-- **Phase 2 (Current)**: Integration with editors (VS Code extension acting as MCP client) to surface these signals in the UI.
-  • Phase 3: Advanced heuristics (Context Thrashing detection) and AI-driven recommendations that draft the commit messages for you.
+- **Phase 2 (Current)**:
+  - **Smart Intent (v0.2)**: LLM-based scope verification (BYOK API).
+  - **Repo Config (v0.2)**: `.flowcheck.json` and `.flowcheckignore` support.
+  - **Integration**: Editor integrations (VS Code etc).
+    • Phase 3: Advanced heuristics (Context Thrashing detection) and AI-driven recommendations that draft the commit messages for you.
 
 ---
 

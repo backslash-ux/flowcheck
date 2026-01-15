@@ -104,84 +104,56 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 | `get_recommendations` | Returns actionable nudges + **security warnings**    |
 | `set_rules`           | Dynamically adjust thresholds                        |
 
-### v0.1 Production Features
+### v0.2 Smart Features (New)
 
-| Tool               | Purpose                                                    |
-| ------------------ | ---------------------------------------------------------- |
-| `search_history`   | **Semantic search** - find commits by meaning              |
-| `verify_intent`    | **GitHub alignment** - validate against issue requirements |
-| `sanitize_content` | **PII/secret redaction** before sharing with AI            |
+| Tool               | Purpose                                                                               |
+| ------------------ | ------------------------------------------------------------------------------------- |
+| `search_history`   | **Semantic search** - find commits by meaning                                         |
+| `verify_intent`    | **Smart Intent Verification** - use "AI Judge" (BYOK LLM) to align diffs with tickets |
+| `sanitize_content` | **PII/secret redaction** before sharing with AI                                       |
 
-### Example: `get_flow_state`
-
-```json
-{
-  "minutes_since_last_commit": 45,
-  "uncommitted_lines": 520,
-  "uncommitted_files": 8,
-  "branch_name": "feature/api-refactor",
-  "branch_age_days": 3,
-  "behind_main_by_commits": 12,
-  "status": "warning",
-  "security_flags": ["⚠️ SECRETS: Potential secrets detected in diff"]
-}
-```
-
-### Example: `get_recommendations`
+### Example: `verify_intent` (Smart Mode)
 
 ```json
 {
-  "recommendations": [
-    "🔒 SECURITY: Review security flags before committing.",
-    "📊 You have 520 uncommitted lines. Consider splitting into focused commits.",
-    "🔄 You are behind main by 12 commits. Consider merging to avoid conflicts."
-  ],
-  "status": "warning",
-  "security_flags": ["⚠️ SECRETS: Potential secrets detected in diff"]
-}
-```
-
-### Example: `search_history`
-
-```json
-{
-  "query": "authentication changes",
-  "results": [
-    {
-      "commit_hash": "a1b2c3d",
-      "message": "Refactor OAuth token validation",
-      "score": 0.87,
-      "matched_terms": ["oauth", "token"]
-    }
-  ]
+  "alignment_score": 0.4,
+  "is_aligned": false,
+  "ticket_id": "42",
+  "scope_creep_warnings": ["Scope Creep Detected by AI Judge"],
+  "reasoning": "The ticket asks for a bug fix in auth, but the diff contains a full refactor of the billing module."
 }
 ```
 
 ## Configuration
 
-FlowCheck uses `~/.flowcheck/config.json`:
+FlowCheck supports hierarchical configuration:
+
+1. **Repo Config**: `.flowcheck.json` (in project root)
+2. **Global Config**: `~/.flowcheck/config.json`
+3. **Defaults**
+
+### `.flowcheck.json` Example
 
 ```json
 {
-  "max_minutes_without_commit": 60,
-  "max_lines_uncommitted": 500,
-  "github_token": "your_token_here"
+  "max_minutes_without_commit": 45,
+  "intent": {
+    "provider": "openai",
+    "model": "gpt-4o",
+    "api_key_env": "OPENAI_API_KEY"
+  }
 }
 ```
 
-| Parameter                    | Default | Description                                      |
-| ---------------------------- | ------- | ------------------------------------------------ |
-| `max_minutes_without_commit` | 60      | Minutes before suggesting checkpoint             |
-| `max_lines_uncommitted`      | 500     | Lines before suggesting split                    |
-| `github_token`               | `None`  | GitHub PAT (can also use `GITHUB_TOKEN` env var) |
+### Ignoring Files (`.flowcheckignore`)
 
-## Status Levels
+Create a `.flowcheckignore` file in your repo root to exclude files from analysis (uses gitignore syntax):
 
-| Status    | Meaning                             |
-| --------- | ----------------------------------- |
-| `ok`      | All metrics within thresholds       |
-| `warning` | One or more thresholds exceeded     |
-| `danger`  | Thresholds exceeded by 1.5x or more |
+```gitignore
+tests/fixtures/
+*.min.js
+legacy/
+```
 
 ## Security Features (v0.1)
 
@@ -203,9 +175,89 @@ FlowCheck uses `~/.flowcheck/config.json`:
 - **SQLite Storage**: Local index in `~/.flowcheck/semantic_index.db`
 - Find commits by meaning, not just keywords
 
+## Installation & Deployment
+
+### Option 1: Docker (Recommended)
+
+Get FlowCheck running in 30 seconds:
+
+```bash
+# Clone and setup
+git clone https://github.com/backslash-ux/flowcheck.git
+cd flowcheck
+
+# Configure environment
+cp .env.example .env
+nano .env  # Add your API keys
+
+# Start the stack
+docker-compose up
+```
+
+FlowCheck is now running at `http://localhost:8000`
+
+**See [Docker Deployment Guide](docs/deployment/Docker.md) for:**
+- Local development setup
+- Production deployment
+- Image variants (production/slim/dev)
+- Troubleshooting
+
+### Option 2: Python Package
+
+```bash
+pip install git+https://github.com/backslash-ux/flowcheck.git
+
+# Set environment variables
+export ANTHROPIC_API_KEY=sk-ant-xxxxx
+
+# Start server
+flowcheck-server
+```
+
+### Option 3: From Source
+
+```bash
+git clone https://github.com/backslash-ux/flowcheck.git
+cd flowcheck
+
+# Create virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Install in development mode
+pip install -e ".[dev]"
+
+# Run tests
+pytest tests/
+
+# Start server
+flowcheck-server
+```
+
+## Deployment
+
+FlowCheck supports multiple deployment models:
+
+| Scenario | Time | Guide |
+|----------|------|-------|
+| **Local Development** | 5 min | [Docker](docs/deployment/Docker.md) |
+| **Production (Docker)** | 10 min | [Docker.md](docs/deployment/Docker.md#production-deployment) |
+| **Kubernetes** | 30 min | [Kubernetes.md](docs/deployment/Kubernetes.md) |
+| **CI/CD Integration** | 15 min | [CI-CD.md](docs/deployment/CI-CD.md) |
+
+👉 **[Deployment Guide](docs/deployment/README.md)** for full options
+
 ## Development
 
 ```bash
+# Setup development environment
+docker-compose -f docker-compose.dev.yml up
+
+# Or use Python venv
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+
 # Run tests
 pytest tests/ -v
 

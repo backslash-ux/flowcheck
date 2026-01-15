@@ -1,0 +1,36 @@
+# Development image with dev dependencies and interactive tools
+FROM python:3.13-slim
+
+WORKDIR /app
+
+# Install system dev tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    curl \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN groupadd -r flowcheck && useradd -r -g flowcheck flowcheck
+
+# Copy project
+COPY pyproject.toml .
+COPY src/ ./src/
+COPY tests/ ./tests/
+COPY docs/ ./docs/
+
+# Install with dev dependencies
+RUN pip install --no-cache-dir -e ".[dev]"
+
+ENV PATH=/home/flowcheck/.local/bin:$PATH \
+    PYTHONUNBUFFERED=1 \
+    FLOWCHECK_LOG_LEVEL=DEBUG
+
+RUN mkdir -p /data/flowcheck && chown -R flowcheck:flowcheck /data/flowcheck
+
+USER flowcheck
+
+EXPOSE 8000
+
+# Default to interactive bash for development
+CMD ["/bin/bash"]

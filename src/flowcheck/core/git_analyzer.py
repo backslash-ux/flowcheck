@@ -118,39 +118,49 @@ def get_commits_behind_main(repo: Repo) -> int:
         return 0
 
 
-def get_uncommitted_stats(repo: Repo) -> tuple[int, int]:
+def get_uncommitted_stats(repo: Repo, exclude_args: list[str] = None) -> tuple[int, int]:
     """Get statistics about uncommitted changes.
 
     Args:
         repo: Git repository object.
+        exclude_args: List of git exclude pathspecs (e.g. [':!tests/']).
 
     Returns:
         Tuple of (uncommitted_files, uncommitted_lines).
     """
+    exclude_args = exclude_args or []
+
     try:
-        # Get diff stats for working tree changes
-        diff_index = repo.index.diff(None)  # Changes not staged
-        diff_staged = repo.index.diff("HEAD")  # Staged changes
+        # Use git status --porcelain for file counting (easier to filter? actually git diff --name-only is better with pathspec)
+        # Note: repo.index.diff doesn't easily support pathspec exclusion without raw command
 
-        # Count files
-        changed_files = set()
-        for diff in diff_index:
-            changed_files.add(diff.a_path or diff.b_path)
-        for diff in diff_staged:
-            changed_files.add(diff.a_path or diff.b_path)
+        # Count uncommitted files using git raw command which supports pathspecs
+        # We need both staged and unstaged
+        # git status --porcelain=v1 --untracked-files=all -- [pathspecs]
+        # Actually git diff --name-only HEAD -- . ... is easier but misses untracked
 
-        # Add untracked files
-        untracked = repo.untracked_files
-        changed_files.update(untracked)
+        # Let's use git status --porcelain as it lists all changed/untracked files
+        # and supports pathspecs including excludes
 
-        uncommitted_files = len(changed_files)
+        args = ["--porcelain", "--untracked-files=all",
+                "--", "."] + exclude_args
+        status_output = repo.git.status(*args)
+
+        if not status_output:
+            uncommitted_files = 0
+        else:
+            uncommitted_files = len(status_output.strip().split('\n'))
 
         # Get line counts using git diff --shortstat
         try:
-            # Staged changes
-            staged_stat = repo.git.diff("--cached", "--shortstat")
-            # Unstaged changes
-            unstaged_stat = repo.git.diff("--shortstat")
+            # We need to construct args for diff
+            # Staged changes: git diff --cached --shortstat -- . :!exclude
+            diff_args = ["--shortstat", "--", "."] + exclude_args
+
+            # Staged
+            staged_stat = repo.git.diff("--cached", *diff_args)
+            # Unstaged
+            unstaged_stat = repo.git.diff(*diff_args)
 
             total_lines = 0
             for stat in [staged_stat, unstaged_stat]:
@@ -192,11 +202,16 @@ def analyze_repo(repo_path: str) -> dict:
     Raises:
         NotAGitRepositoryError: If path is not a valid Git repository.
     """
+    from flowcheck.core.ignorer import IgnoreManager
+
     repo = get_repo(repo_path)
+    ignorer = IgnoreManager(repo_path)
+    exclude_args = ignorer.get_git_exclude_args()
 
     branch_name = get_current_branch(repo)
     minutes_since_last_commit = get_minutes_since_last_commit(repo)
-    uncommitted_files, uncommitted_lines = get_uncommitted_stats(repo)
+    uncommitted_files, uncommitted_lines = get_uncommitted_stats(
+        repo, exclude_args)
     branch_age_days = get_branch_age_days(repo)
     behind_main_by_commits = get_commits_behind_main(repo)
 
