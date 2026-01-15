@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  flowcheck-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: flowcheck-server
+    ports:
+      - "8000:8000"
+    environment:
+      - FLOWCHECK_LOG_LEVEL=${FLOWCHECK_LOG_LEVEL:-INFO}
+      - FLOWCHECK_STORAGE_PATH=/data/flowcheck
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    volumes:
+      - flowcheck-data:/data/flowcheck
+      - ~/.flowcheck:/root/.flowcheck:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "flowcheck-server", "--version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  flowcheck-data:
+    driver: local

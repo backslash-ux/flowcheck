@@ -1,0 +1,71 @@
+# Docker build exclusions
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache
+.coverage
+htmlcov/
+.tox/
+
+# Documentation
+docs/_build/
+site/
+
+# Environment
+.env
+.venv
+env/
+venv/
+
+# System
+.DS_Store
+Thumbs.db
+*.log
+
+# CI/CD
+.github
+.gitlab-ci.yml
+
+# Development
+node_modules
+.node-gyp
+npm-debug.log
+yarn-error.log
+
+# Misc
+README.md
+LICENSE
+CHANGELOG.md
+CONTRIBUTING.md
