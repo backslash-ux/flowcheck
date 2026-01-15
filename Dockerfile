@@ -6,7 +6,6 @@ WORKDIR /app
 
 # Copy project files
 COPY pyproject.toml .
-COPY README.md .
 COPY src/ ./src/
 
 # Install build dependencies and package
@@ -20,12 +19,21 @@ WORKDIR /app
 # Create non-root user for security
 RUN groupadd -r flowcheck && useradd -r -g flowcheck flowcheck
 
+# Install git (required by GitPython)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install git (required by GitPython)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy dependencies from builder
 COPY --from=builder /root/.local /home/flowcheck/.local
 
 # Copy application code
 COPY --from=builder /app/src ./src
-COPY --from=builder /app/README.md .
 
 # Set environment
 ENV PATH=/home/flowcheck/.local/bin:$PATH \
@@ -38,9 +46,9 @@ RUN mkdir -p /data/flowcheck && chown -R flowcheck:flowcheck /data/flowcheck
 # Switch to non-root user
 USER flowcheck
 
-# Health check
+# Health check - check if process is running
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD flowcheck-server --version || exit 1
+    CMD ps aux | grep -q '[f]lowcheck-server' || exit 1
 
 # Expose MCP server port
 EXPOSE 8000

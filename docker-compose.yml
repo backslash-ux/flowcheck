@@ -15,10 +15,11 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
     volumes:
       - flowcheck-data:/data/flowcheck
-      - ~/.flowcheck:/root/.flowcheck:ro
+      - ~/.flowcheck:/home/flowcheck/.flowcheck:rw
     restart: unless-stopped
+    # MCP server runs on stdio - not HTTP. It's ready when the process is alive.
     healthcheck:
-      test: ["CMD", "flowcheck-server", "--version"]
+      test: ["CMD", "pgrep", "flowcheck-server"]
       interval: 30s
       timeout: 10s
       retries: 3

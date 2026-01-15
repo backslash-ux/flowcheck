@@ -6,7 +6,6 @@ build-backend = "hatchling.build"
 name = "flowcheck"
 version = "0.3.0"
 description = "A local MCP safety layer for developer workflow hygiene"
-readme = "README.md"
 requires-python = ">=3.10"
 authors = [
     { name = "FlowCheck Team", email = "maintainers@flowcheck.dev" }
