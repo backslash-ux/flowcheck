@@ -270,10 +270,12 @@ class CommitIndexer:
         if not commits_to_index:
             return 0
 
-        # Fit vectorizer on commit messages
-        messages = [c.message + " " +
-                    " ".join(c.files_changed) for c in commits_to_index]
-        self.vectorizer.fit(messages)
+        # Fit vectorizer on commit messages (only if not already fitted)
+        # This preserves vocabulary from previous indexing runs
+        if not self.vectorizer._fitted:
+            messages = [c.message + " " +
+                        " ".join(c.files_changed) for c in commits_to_index]
+            self.vectorizer.fit(messages)
 
         # Vectorize commits
         for commit in commits_to_index:
@@ -479,6 +481,22 @@ class CommitIndexer:
                 "indexed_count": 0,
                 "skipped_count": skipped_count,
             }
+
+        # Ensure vectorizer is fitted before indexing
+        # If this is the first batch and vectorizer isn't fitted, fit it now
+        if not self.vectorizer._fitted:
+            messages = []
+            for commit in commits_to_process:
+                try:
+                    files = list(commit.stats.files.keys())[:20]
+                except Exception:
+                    files = []
+                text = commit.message.strip()[:500] + " " + " ".join(files)
+                messages.append(text)
+            
+            if messages:
+                self.vectorizer.fit(messages)
+                self._save_vectorizer_state()
 
         # Index new commits
         for commit in commits_to_process:
