@@ -25,17 +25,17 @@ classifiers = [
     "Topic :: Software Development :: Quality Assurance",
 ]
 
+dependencies = [
+    "fastmcp>=2.0",
+    "gitpython>=3.1",
+]
+
 [project.urls]
 Homepage = "https://github.com/backslash-ux/flowcheck"
 Documentation = "https://github.com/backslash-ux/flowcheck#readme"
 Repository = "https://github.com/backslash-ux/flowcheck.git"
 Issues = "https://github.com/backslash-ux/flowcheck/issues"
 Changelog = "https://github.com/backslash-ux/flowcheck/blob/main/CHANGELOG.md"
-
-dependencies = [
-    "fastmcp>=2.0",
-    "gitpython>=3.1",
-]
 
 [project.optional-dependencies]
 dev = [
