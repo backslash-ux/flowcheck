@@ -23,7 +23,7 @@ Cursor is an AI-first code editor that pairs perfectly with FlowCheck. By integr
 
    ```bash
    # Command
-   /Users/yourname/projects/flowcheck/.venv/bin/python
+   /path/to/flowcheck/.venv/bin/python
 
    # Args
    -m flowcheck.server

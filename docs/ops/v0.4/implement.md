@@ -1,7 +1,7 @@
 # v0.4 Implementation Roadmap: "Containerize It"
 
-> **Status**: ✅ **PHASE 1-5 COMPLETE** | Tag: `v0.4.0` (TBD)  
-> **Branch**: `feat/v0.4-containerization`  
+> **Status**: ✅ **PHASE 1-5 COMPLETE** | Tag: `v0.4.0` (Released 2026-01-15)  
+> **Branch**: `release/v0.4`  
 > **Progress**: 5/7 phases complete (Phases 1-5 ✅, Phases 6-7 ⏳)
 
 This document outlines the engineering work for FlowCheck v0.4, focusing on **containerization**, **multi-image strategy**, and **deployment simplicity**.
