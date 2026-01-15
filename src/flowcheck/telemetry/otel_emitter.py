@@ -71,7 +71,7 @@ def create_tracer(
     # Create resource with service info
     resource = Resource.create({
         "service.name": service_name,
-        "service.version": "0.1.0",
+        "service.version": "0.4.0",
     })
 
     # Create provider
