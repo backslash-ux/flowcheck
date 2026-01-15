@@ -33,7 +33,7 @@ def get_version() -> str:
         from importlib.metadata import version
         return version("flowcheck")
     except Exception:
-        return "0.3.0-dev"
+        return "0.4.0-dev"
 
 
 def _apply_security_scan(diff_content: str) -> list[str]:
