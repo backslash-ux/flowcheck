@@ -1,5 +1,9 @@
 # v0.3 Implementation Roadmap: "Make It Enforceable"
 
+> **Status**: ✅ **RELEASED** as `v0.3.0` on January 15, 2026  
+> **Branch**: `release/v0.3` | **Tag**: `v0.3.0`  
+> **Tests**: 136/136 passing (100%)
+
 This document outlines the engineering work for FlowCheck v0.3, focusing on **enforcement**, **automation**, and **developer experience**.
 
 ## Goals
@@ -13,13 +17,13 @@ v0.3 transforms FlowCheck from a "passive observer" into an "active co-pilot" th
 
 ---
 
-## 1. CLI Foundation
+## 1. CLI Foundation ✅
 
 **Goal**: Provide command-line interface for setup, indexing, and health checks.
 
 ### 1.1 CLI Entry Point
 
-Create `src/flowcheck/cli.py` with subcommands:
+Created `src/flowcheck/cli.py` with subcommands:
 
 ```bash
 flowcheck check [repo_path]     # Run health check + security scan
@@ -39,13 +43,13 @@ flowcheck install-hooks         # Install pre-commit hooks
 
 ---
 
-## 2. Pre-Commit Hook Integration
+## 2. Pre-Commit Hook Integration ✅
 
 **Goal**: Actually BLOCK dangerous commits with secrets/PII.
 
 ### 2.1 Hook Generator
 
-Create `src/flowcheck/hooks/pre_commit.py`:
+Created `src/flowcheck/hooks/installer.py`:
 
 - Generates a `.git/hooks/pre-commit` script
 - Script calls `flowcheck check --strict` and blocks on non-zero exit
@@ -68,13 +72,13 @@ Add `--strict` flag to `flowcheck check`:
 
 ---
 
-## 3. Automatic Commit Indexing
+## 3. Automatic Commit Indexing ✅
 
 **Goal**: Keep semantic search index up-to-date automatically.
 
 ### 3.1 Post-Commit Hook
 
-Add optional `post-commit` hook that:
+Added optional `post-commit` hook that:
 
 - Indexes the new commit immediately
 - Runs in background (non-blocking)
@@ -97,13 +101,13 @@ Enhance `CommitIndexer`:
 
 ---
 
-## 4. Anthropic LLM Provider
+## 4. Anthropic LLM Provider ✅
 
 **Goal**: Support Claude models for Smart Intent verification.
 
 ### 4.1 AnthropicClient
 
-Create `src/flowcheck/llm/anthropic_client.py`:
+Created `src/flowcheck/llm/anthropic_client.py`:
 
 - Implements `LLMClient` abstract interface
 - Uses Messages API with JSON mode
@@ -130,13 +134,13 @@ Create `src/flowcheck/llm/anthropic_client.py`:
 
 ---
 
-## 5. Session & Trace Management
+## 5. Session & Trace Management ✅
 
 **Goal**: Correlate tool calls across an agent session.
 
 ### 5.1 Session Context
 
-Add `session_id` that persists across MCP tool calls:
+Added `session_id` that persists across MCP tool calls:
 
 - Generated on first tool call or via `start_session()` tool
 - Included in all audit log entries
@@ -164,7 +168,7 @@ def get_session_info() -> dict:
 
 ---
 
-## 6. Enhanced Audit Logging
+## 6. Enhanced Audit Logging ✅
 
 **Goal**: Better observability for production use.
 
@@ -184,7 +188,7 @@ def get_session_info() -> dict:
 
 ---
 
-## 7. Testing & Documentation
+## 7. Testing & Documentation ✅
 
 ### 7.1 Tests
 
@@ -200,6 +204,24 @@ def get_session_info() -> dict:
 - [x] Add "Installation" guide with hook setup
 - [x] Document Anthropic configuration
 - [x] Add troubleshooting section
+
+---
+
+## Bug Fixes
+
+### Vector Persistence Fix (CRITICAL)
+
+**Issue**: Semantic search returned empty results after initial indexing because vectors were stored as NULL in the database.
+
+**Root Cause**: 
+- `index_incremental()` called `index_single_commit()` which skipped vectorization when `vectorizer._fitted=False`
+- `index_repo()` always called `fit()`, overwriting existing vocabulary on re-runs
+
+**Solution** (commit `f5be723`):
+1. `index_repo()`: Check `if not self.vectorizer._fitted` before fitting
+2. `index_incremental()`: Fit vectorizer on first batch when not already fitted
+
+**Verification**: E2E test confirmed search returns results with score 0.76+
 
 ---
 
@@ -237,12 +259,36 @@ src/flowcheck/
 
 ## Timeline
 
-| Phase | Features | Estimate |
-|-------|----------|----------|
-| Phase 1 | CLI + Strict Mode | 2-3 hours |
-| Phase 2 | Hooks + Indexing | 2-3 hours |
-| Phase 3 | Anthropic Client | 1-2 hours |
-| Phase 4 | Session Management | 1-2 hours |
-| Phase 5 | Tests + Docs | 2 hours |
+| Phase | Features | Estimate | Status |
+|-------|----------|----------|--------|
+| Phase 1 | CLI + Strict Mode | 2-3 hours | ✅ Complete |
+| Phase 2 | Hooks + Indexing | 2-3 hours | ✅ Complete |
+| Phase 3 | Anthropic Client | 1-2 hours | ✅ Complete |
+| Phase 4 | Session Management | 1-2 hours | ✅ Complete |
+| Phase 5 | Tests + Docs | 2 hours | ✅ Complete |
+| Phase 6 | Bug Fixes & Release | 1 hour | ✅ Complete |
+
+---
+
+## Release Notes (v0.3.0)
+
+**Released**: January 15, 2026
+
+### Highlights
+
+- 🛡️ **Pre-commit hooks** block dangerous commits with `--strict` mode
+- 🔄 **Post-commit hooks** auto-index new commits for semantic search  
+- 🤖 **Anthropic Claude** support for Smart Intent verification
+- 🔗 **Session management** correlates tool calls across agent sessions
+- 📊 **136 tests** passing with 100% coverage of new features
+
+### Deferred to v0.3.1
+
+- `flowcheck setup` wizard for interactive configuration
+- LLM verdict logging via intent layer
+
+### Breaking Changes
+
+None. Full backwards compatibility with v0.2 configs.
 
 **Total**: ~10 hours of engineering work
