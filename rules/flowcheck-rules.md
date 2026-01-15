@@ -44,13 +44,15 @@ Example: `search_history("authentication changes", repo_path)`
 
 ---
 
-## 4. `verify_intent` - GitHub Issue Alignment
+## 4. `verify_intent` - Smart Intent Validation
 
 You `SHOULD` call this tool:
 
 - **Before completing a task** to verify alignment with GitHub issue requirements
 - **When scope seems to be expanding** beyond the original issue
 - **Before large refactors** to confirm they're in scope
+
+FlowCheck can use an **LLM Judge** (if configured) or heuristic analysis to detect scope creep.
 
 Example: `verify_intent(ticket_id="42", repo_path=".")`
 

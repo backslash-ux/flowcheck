@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  flowcheck-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: flowcheck-server
+    ports:
+      - "8000:8000"
+    environment:
+      - FLOWCHECK_LOG_LEVEL=${FLOWCHECK_LOG_LEVEL:-INFO}
+      - FLOWCHECK_STORAGE_PATH=/data/flowcheck
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    volumes:
+      - flowcheck-data:/data/flowcheck
+      - ~/.flowcheck:/home/flowcheck/.flowcheck:rw
+    restart: unless-stopped
+    # MCP server runs on stdio - not HTTP. It's ready when the process is alive.
+    healthcheck:
+      test: ["CMD", "pgrep", "flowcheck-server"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  flowcheck-data:
+    driver: local

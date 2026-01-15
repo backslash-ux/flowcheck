@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  flowcheck-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: flowcheck-dev
+    ports:
+      - "8000:8000"
+    environment:
+      - FLOWCHECK_LOG_LEVEL=DEBUG
+      - FLOWCHECK_STORAGE_PATH=/data/flowcheck
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - .:/app
+      - flowcheck-data:/data/flowcheck
+      - ~/.flowcheck:/root/.flowcheck
+    stdin_open: true
+    tty: true
+    restart: no
+
+volumes:
+  flowcheck-data:
+    driver: local

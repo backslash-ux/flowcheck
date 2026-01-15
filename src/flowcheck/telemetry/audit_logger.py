@@ -22,15 +22,17 @@ class AuditEntry:
     trace_id: str
     action: str
     agent_id: str
+    session_id: Optional[str] = None  # v0.3: Session correlation
     risk_score: float = 0.0
     pii_detected: bool = False
     injection_detected: bool = False
     status: str = "ok"
     repo_path: Optional[str] = None
+    duration_ms: Optional[int] = None  # v0.3: Timing metadata
     metadata: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
-        return {
+        result = {
             "timestamp": self.timestamp.isoformat(),
             "trace_id": self.trace_id,
             "action": self.action,
@@ -42,6 +44,11 @@ class AuditEntry:
             "repo_path": self.repo_path,
             "metadata": self.metadata,
         }
+        if self.session_id:
+            result["session_id"] = self.session_id
+        if self.duration_ms is not None:
+            result["duration_ms"] = self.duration_ms
+        return result
 
     def to_log_line(self) -> str:
         """Convert to single-line log format."""
@@ -72,21 +79,25 @@ class AuditLogger:
     """
 
     DEFAULT_LOG_PATH = Path.home() / ".flowcheck" / "audit.log"
+    MAX_LOG_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
 
     def __init__(
         self,
         log_path: Optional[Path] = None,
         agent_id: Optional[str] = None,
+        max_log_size: int = MAX_LOG_SIZE_BYTES,
     ):
         """Initialize the audit logger.
 
         Args:
             log_path: Path to the audit log file.
             agent_id: Default agent ID for entries.
+            max_log_size: Maximum log file size before rotation (default 10MB).
         """
         self.log_path = log_path or self.DEFAULT_LOG_PATH
         self.agent_id = agent_id or os.environ.get(
             "FLOWCHECK_AGENT_ID", "unknown")
+        self.max_log_size = max_log_size
         self._lock = threading.Lock()
         self._ensure_log_file()
 
@@ -96,15 +107,46 @@ class AuditLogger:
         if not self.log_path.exists():
             self.log_path.touch()
 
+    def _rotate_if_needed(self):
+        """Rotate log file if it exceeds max size."""
+        try:
+            if self.log_path.exists() and self.log_path.stat().st_size > self.max_log_size:
+                # Find next available rotation number
+                rotation_num = 1
+                while True:
+                    rotated_path = self.log_path.with_suffix(f".log.{rotation_num}")
+                    if not rotated_path.exists():
+                        break
+                    rotation_num += 1
+                    if rotation_num > 10:  # Keep max 10 rotated files
+                        # Delete oldest and shift
+                        oldest = self.log_path.with_suffix(".log.1")
+                        if oldest.exists():
+                            oldest.unlink()
+                        for i in range(2, rotation_num):
+                            old = self.log_path.with_suffix(f".log.{i}")
+                            new = self.log_path.with_suffix(f".log.{i-1}")
+                            if old.exists():
+                                old.rename(new)
+                        rotated_path = self.log_path.with_suffix(f".log.{rotation_num-1}")
+                        break
+                
+                self.log_path.rename(rotated_path)
+                self.log_path.touch()
+        except Exception:
+            pass  # Don't fail on rotation errors
+
     def log(
         self,
         action: str,
         trace_id: Optional[str] = None,
+        session_id: Optional[str] = None,
         risk_score: float = 0.0,
         pii_detected: bool = False,
         injection_detected: bool = False,
         status: str = "ok",
         repo_path: Optional[str] = None,
+        duration_ms: Optional[int] = None,
         **metadata,
     ) -> AuditEntry:
         """Log an audit entry.
@@ -112,11 +154,13 @@ class AuditLogger:
         Args:
             action: The action being logged (e.g., "get_flow_state").
             trace_id: Optional trace ID (generated if not provided).
+            session_id: Optional session ID for correlation.
             risk_score: Risk score from 0.0 to 1.0.
             pii_detected: Whether PII was detected.
             injection_detected: Whether injection patterns were detected.
             status: Flow health status.
             repo_path: Path to the repository.
+            duration_ms: Operation duration in milliseconds.
             **metadata: Additional metadata to include.
 
         Returns:
@@ -127,11 +171,13 @@ class AuditLogger:
             trace_id=trace_id or uuid.uuid4().hex[:32],
             action=action,
             agent_id=self.agent_id,
+            session_id=session_id,
             risk_score=risk_score,
             pii_detected=pii_detected,
             injection_detected=injection_detected,
             status=status,
             repo_path=repo_path,
+            duration_ms=duration_ms,
             metadata=metadata,
         )
 
@@ -141,6 +187,7 @@ class AuditLogger:
     def _write_entry(self, entry: AuditEntry):
         """Write an entry to the log file (thread-safe, append-only)."""
         with self._lock:
+            self._rotate_if_needed()
             with open(self.log_path, "a") as f:
                 f.write(entry.to_log_line() + "\n")
 
@@ -150,6 +197,7 @@ class AuditLogger:
         repo_path: str,
         result: dict,
         trace_id: Optional[str] = None,
+        session_id: Optional[str] = None,
     ) -> AuditEntry:
         """Convenience method for logging MCP tool calls.
 

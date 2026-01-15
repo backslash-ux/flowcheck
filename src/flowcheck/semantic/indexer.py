@@ -270,10 +270,12 @@ class CommitIndexer:
         if not commits_to_index:
             return 0
 
-        # Fit vectorizer on commit messages
-        messages = [c.message + " " +
-                    " ".join(c.files_changed) for c in commits_to_index]
-        self.vectorizer.fit(messages)
+        # Fit vectorizer on commit messages (only if not already fitted)
+        # This preserves vocabulary from previous indexing runs
+        if not self.vectorizer._fitted:
+            messages = [c.message + " " +
+                        " ".join(c.files_changed) for c in commits_to_index]
+            self.vectorizer.fit(messages)
 
         # Vectorize commits
         for commit in commits_to_index:
@@ -339,3 +341,188 @@ class CommitIndexer:
             else:
                 row = conn.execute("SELECT COUNT(*) FROM commits").fetchone()
         return row[0] if row else 0
+
+    def get_last_indexed_hash(self, repo_path: str) -> Optional[str]:
+        """Get the hash of the most recently indexed commit for a repo.
+        
+        Args:
+            repo_path: Path to the repository.
+            
+        Returns:
+            Commit hash or None if no commits indexed.
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            row = conn.execute(
+                "SELECT commit_hash FROM commits WHERE repo_path = ? ORDER BY timestamp DESC LIMIT 1",
+                (str(repo_path),)
+            ).fetchone()
+        return row[0] if row else None
+
+    def is_commit_indexed(self, commit_hash: str) -> bool:
+        """Check if a commit is already indexed.
+        
+        Args:
+            commit_hash: The commit hash (or prefix).
+            
+        Returns:
+            True if the commit is indexed.
+        """
+        with sqlite3.connect(self.db_path) as conn:
+            # Match by prefix (first 12 chars)
+            short_hash = commit_hash[:12]
+            row = conn.execute(
+                "SELECT 1 FROM commits WHERE commit_hash = ?",
+                (short_hash,)
+            ).fetchone()
+        return row is not None
+
+    def index_single_commit(self, repo_path: str, commit_hash: str) -> bool:
+        """Index a single commit.
+        
+        Args:
+            repo_path: Path to the repository.
+            commit_hash: The commit hash to index.
+            
+        Returns:
+            True if indexed successfully.
+        """
+        from git import Repo
+
+        if self.is_commit_indexed(commit_hash):
+            return False  # Already indexed
+
+        repo = Repo(repo_path, search_parent_directories=True)
+        
+        try:
+            commit = repo.commit(commit_hash)
+        except Exception:
+            return False
+            
+        # Get files changed
+        try:
+            files = list(commit.stats.files.keys())[:20]
+        except Exception:
+            files = []
+
+        # Get diff summary
+        try:
+            diff_stat = commit.stats.total
+            diff_summary = f"+{diff_stat.get('insertions', 0)}/-{diff_stat.get('deletions', 0)}"
+        except Exception:
+            diff_summary = ""
+
+        indexed = IndexedCommit(
+            commit_hash=commit.hexsha[:12],
+            message=commit.message.strip()[:500],
+            author=commit.author.name if commit.author else "Unknown",
+            timestamp=datetime.fromtimestamp(commit.committed_date, tz=timezone.utc),
+            files_changed=files,
+            diff_summary=diff_summary,
+        )
+
+        # Vectorize using existing vocabulary (if fitted)
+        text = indexed.message + " " + " ".join(indexed.files_changed)
+        if self.vectorizer._fitted:
+            indexed.vector = self.vectorizer.transform(text)
+        else:
+            indexed.vector = None
+
+        # Store in database
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("""
+                INSERT OR REPLACE INTO commits 
+                (commit_hash, message, author, timestamp, files_changed, diff_summary, vector, repo_path)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                indexed.commit_hash,
+                indexed.message,
+                indexed.author,
+                indexed.timestamp.isoformat(),
+                json.dumps(indexed.files_changed),
+                indexed.diff_summary,
+                json.dumps(indexed.vector) if indexed.vector else None,
+                str(repo_path),
+            ))
+            conn.commit()
+
+        return True
+
+    def index_incremental(self, repo_path: str, max_commits: int = 100) -> dict:
+        """Index only new commits since last indexing.
+        
+        Args:
+            repo_path: Path to the repository.
+            max_commits: Maximum new commits to index.
+            
+        Returns:
+            Dictionary with indexing statistics.
+        """
+        from git import Repo
+
+        repo = Repo(repo_path, search_parent_directories=True)
+        last_hash = self.get_last_indexed_hash(repo_path)
+        
+        indexed_count = 0
+        skipped_count = 0
+        commits_to_process = []
+
+        # Collect new commits
+        for commit in repo.iter_commits(max_count=max_commits):
+            short_hash = commit.hexsha[:12]
+            
+            if self.is_commit_indexed(short_hash):
+                skipped_count += 1
+                continue
+                
+            commits_to_process.append(commit)
+
+        if not commits_to_process:
+            return {
+                "indexed_count": 0,
+                "skipped_count": skipped_count,
+            }
+
+        # Ensure vectorizer is fitted before indexing
+        # If this is the first batch and vectorizer isn't fitted, fit it now
+        if not self.vectorizer._fitted:
+            messages = []
+            for commit in commits_to_process:
+                try:
+                    files = list(commit.stats.files.keys())[:20]
+                except Exception:
+                    files = []
+                text = commit.message.strip()[:500] + " " + " ".join(files)
+                messages.append(text)
+            
+            if messages:
+                self.vectorizer.fit(messages)
+                self._save_vectorizer_state()
+
+        # Index new commits
+        for commit in commits_to_process:
+            if self.index_single_commit(repo_path, commit.hexsha):
+                indexed_count += 1
+
+        return {
+            "indexed_count": indexed_count,
+            "skipped_count": skipped_count,
+        }
+
+    def index_repository(self, repo_path: str, max_commits: int = 500) -> dict:
+        """Index all commits from a repository (full reindex).
+        
+        This is an alias for index_repo that returns stats.
+        
+        Args:
+            repo_path: Path to the repository.
+            max_commits: Maximum commits to index.
+            
+        Returns:
+            Dictionary with indexing statistics.
+        """
+        count = self.index_repo(repo_path, max_commits)
+        return {
+            "indexed_count": count,
+            "skipped_count": 0,
+        }
+
