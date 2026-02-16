@@ -4,7 +4,9 @@ FlowCheck v0.2 introduces **Smart Intent Verification**, which uses an LLM (Larg
 
 ## 1. Configuration (BYOK)
 
-Smart Intent requires you to "Bring Your Own Key" (BYOK). Currently, we support OpenAI-compatible providers.
+Smart Intent requires you to "Bring Your Own Key" (BYOK). We support **OpenAI-compatible** and **Anthropic** providers.
+
+### Option A: OpenAI
 
 1. **Get an API Key** from OpenAI (or a compatible provider).
 2. **Set the Environment Variable**:
@@ -19,6 +21,25 @@ Smart Intent requires you to "Bring Your Own Key" (BYOK). Currently, we support 
        "provider": "openai",
        "model": "gpt-4o",
        "api_key_env": "OPENAI_API_KEY"
+     }
+   }
+   ```
+
+### Option B: Anthropic
+
+1. **Get an API Key** from [Anthropic](https://console.anthropic.com/).
+2. **Set the Environment Variable**:
+   ```bash
+   export ANTHROPIC_API_KEY="sk-ant-..."
+   ```
+3. **Configure FlowCheck**:
+
+   ```json
+   {
+     "intent": {
+       "provider": "anthropic",
+       "model": "claude-sonnet-4-20250514",
+       "api_key_env": "ANTHROPIC_API_KEY"
      }
    }
    ```

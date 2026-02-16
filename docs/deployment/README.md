@@ -83,8 +83,8 @@ docker ps  # or kubectl get pods
 # Check logs
 docker logs flowcheck-server  # or kubectl logs pod/flowcheck-server
 
-# Test endpoint
-curl http://localhost:8000/health
+# Test that the process is running
+docker exec flowcheck-server pgrep flowcheck-server
 ```
 
 ---
