@@ -103,3 +103,9 @@ AGENTS.md
 .augment/rules/byterover-rules.md
 .brv
 .gemini
+
+# Test reports and validation artifacts (ephemeral, not part of codebase)
+*-validation-report.md
+*-test-report.md
+docs/deployment/*-validation-report.md
+docs/deployment/*-test-report.md
