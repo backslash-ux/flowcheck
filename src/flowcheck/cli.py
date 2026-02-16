@@ -15,8 +15,7 @@ from typing import Optional
 from flowcheck.core.git_analyzer import analyze_repo, NotAGitRepositoryError
 from flowcheck.config.loader import load_config
 from flowcheck.rules.engine import build_flow_state, generate_recommendations
-from flowcheck.guardian.sanitizer import Sanitizer
-from flowcheck.guardian.injection_filter import InjectionFilter
+from flowcheck.guardian import apply_security_scan
 from flowcheck.telemetry.audit_logger import get_audit_logger
 
 
@@ -33,46 +32,26 @@ def get_version() -> str:
         from importlib.metadata import version
         return version("flowcheck")
     except Exception:
-        return "0.4.0-dev"
-
-
-def _apply_security_scan(diff_content: str) -> list[str]:
-    """Apply security scans and return security flags."""
-    sanitizer = Sanitizer()
-    injection_filter = InjectionFilter()
-    flags = []
-
-    # Check for secrets/PII
-    if sanitizer.quick_check(diff_content):
-        result = sanitizer.sanitize(diff_content)
-        if result.secrets_detected:
-            flags.append("⚠️ SECRETS: Potential secrets detected in diff")
-        if result.pii_detected:
-            flags.append("⚠️ PII: Personal information detected in diff")
-
-    # Check for injection patterns
-    injection_flags = injection_filter.get_security_flags(diff_content)
-    flags.extend(injection_flags)
-
-    return flags
+        from flowcheck import __version__
+        return __version__
 
 
 def cmd_check(args: argparse.Namespace) -> int:
     """Run health check on a repository.
-    
+
     Returns:
         Exit code (0=ok, 1=warning, 2=security issue, 3=error)
     """
     repo_path = args.repo_path or "."
     strict = args.strict
-    
+
     try:
         # Analyze repository
         config = load_config(repo_path=repo_path)
         raw_metrics = analyze_repo(repo_path)
         flow_state = build_flow_state(raw_metrics, config)
         recommendations = generate_recommendations(flow_state, config)
-        
+
         # Security scan
         security_flags = []
         try:
@@ -80,29 +59,30 @@ def cmd_check(args: argparse.Namespace) -> int:
             repo = Repo(repo_path, search_parent_directories=True)
             diff_content = repo.git.diff()
             if diff_content:
-                security_flags = _apply_security_scan(diff_content)
+                security_flags = apply_security_scan(diff_content)
         except Exception:
             pass
-        
+
         # Print results
         print(f"\n{'='*50}")
         print(f"FlowCheck Health Report")
         print(f"{'='*50}\n")
-        
+
         status_icons = {"ok": "✅", "warning": "⚠️", "danger": "🚨"}
         status_icon = status_icons.get(flow_state.status.value, "❓")
-        
+
         print(f"Status: {status_icon} {flow_state.status.value.upper()}")
         print(f"Branch: {flow_state.branch_name}")
-        print(f"Time since commit: {flow_state.minutes_since_last_commit} minutes")
+        print(
+            f"Time since commit: {flow_state.minutes_since_last_commit} minutes")
         print(f"Uncommitted lines: {flow_state.uncommitted_lines}")
         print(f"Uncommitted files: {flow_state.uncommitted_files}")
-        
+
         if flow_state.branch_age_days > 0:
             print(f"Branch age: {flow_state.branch_age_days} days")
         if flow_state.behind_main_by_commits > 0:
             print(f"Behind main: {flow_state.behind_main_by_commits} commits")
-        
+
         # Security section
         if security_flags:
             print(f"\n{'='*50}")
@@ -110,7 +90,7 @@ def cmd_check(args: argparse.Namespace) -> int:
             print(f"{'='*50}")
             for flag in security_flags:
                 print(f"  {flag}")
-        
+
         # Recommendations
         if recommendations:
             print(f"\n{'='*50}")
@@ -118,9 +98,9 @@ def cmd_check(args: argparse.Namespace) -> int:
             print(f"{'='*50}")
             for rec in recommendations:
                 print(f"  {rec}")
-        
+
         print()
-        
+
         # Log the check
         audit_logger = get_audit_logger()
         audit_logger.log(
@@ -129,20 +109,20 @@ def cmd_check(args: argparse.Namespace) -> int:
             status=flow_state.status.value,
             security_flags=len(security_flags),
         )
-        
+
         # Determine exit code
         if security_flags:
             if strict:
                 print("❌ BLOCKED: Security issues detected (--strict mode)")
             return EXIT_SECURITY
-        
+
         if flow_state.status.value in ("warning", "danger"):
             if strict:
                 print(f"⚠️ WARNING: Flow health is {flow_state.status.value}")
             return EXIT_WARNING
-        
+
         return EXIT_OK
-        
+
     except NotAGitRepositoryError as e:
         print(f"❌ Error: {e}", file=sys.stderr)
         return EXIT_ERROR
@@ -155,23 +135,23 @@ def cmd_index(args: argparse.Namespace) -> int:
     """Index commit history for semantic search."""
     repo_path = args.repo_path or "."
     incremental = args.incremental
-    
+
     try:
         from flowcheck.semantic.indexer import CommitIndexer
-        
+
         print(f"📚 Indexing commits in {repo_path}...")
-        
+
         indexer = CommitIndexer()
-        
+
         if incremental:
             stats = indexer.index_incremental(repo_path)
         else:
             stats = indexer.index_repository(repo_path)
-        
+
         print(f"✅ Indexed {stats.get('indexed_count', 0)} commits")
         if stats.get('skipped_count', 0) > 0:
             print(f"   Skipped {stats['skipped_count']} (already indexed)")
-        
+
         # Log the indexing
         audit_logger = get_audit_logger()
         audit_logger.log(
@@ -180,9 +160,9 @@ def cmd_index(args: argparse.Namespace) -> int:
             indexed_count=stats.get('indexed_count', 0),
             incremental=incremental,
         )
-        
+
         return EXIT_OK
-        
+
     except NotAGitRepositoryError as e:
         print(f"❌ Error: {e}", file=sys.stderr)
         return EXIT_ERROR
@@ -194,27 +174,27 @@ def cmd_index(args: argparse.Namespace) -> int:
 def cmd_install_hooks(args: argparse.Namespace) -> int:
     """Install git hooks for FlowCheck."""
     repo_path = args.repo_path or "."
-    
+
     try:
         from flowcheck.hooks.installer import HookInstaller
-        
+
         installer = HookInstaller(repo_path)
-        
+
         print(f"🔧 Installing FlowCheck hooks in {repo_path}...")
-        
+
         results = installer.install_all()
-        
+
         for hook_name, success in results.items():
             status = "✅" if success else "❌"
             print(f"  {status} {hook_name}")
-        
+
         if all(results.values()):
             print("\n✅ All hooks installed successfully!")
             print("   Commits will now be checked for security issues.")
         else:
             print("\n⚠️ Some hooks failed to install")
             return EXIT_WARNING
-        
+
         # Log the installation
         audit_logger = get_audit_logger()
         audit_logger.log(
@@ -222,9 +202,9 @@ def cmd_install_hooks(args: argparse.Namespace) -> int:
             repo_path=str(repo_path),
             hooks_installed=list(results.keys()),
         )
-        
+
         return EXIT_OK
-        
+
     except NotAGitRepositoryError as e:
         print(f"❌ Error: {e}", file=sys.stderr)
         return EXIT_ERROR
@@ -249,15 +229,16 @@ Examples:
   flowcheck install-hooks           # Install pre-commit hooks
         """,
     )
-    
+
     parser.add_argument(
         "--version", "-v",
         action="version",
         version=f"FlowCheck {get_version()}",
     )
-    
-    subparsers = parser.add_subparsers(dest="command", help="Available commands")
-    
+
+    subparsers = parser.add_subparsers(
+        dest="command", help="Available commands")
+
     # check command
     check_parser = subparsers.add_parser(
         "check",
@@ -274,7 +255,7 @@ Examples:
         action="store_true",
         help="Exit with non-zero code on warnings",
     )
-    
+
     # index command
     index_parser = subparsers.add_parser(
         "index",
@@ -291,7 +272,7 @@ Examples:
         action="store_true",
         help="Only index new commits since last run",
     )
-    
+
     # install-hooks command
     hooks_parser = subparsers.add_parser(
         "install-hooks",
@@ -303,7 +284,7 @@ Examples:
         default=None,
         help="Path to repository (default: current directory)",
     )
-    
+
     return parser
 
 
@@ -311,11 +292,11 @@ def main(argv: Optional[list[str]] = None) -> int:
     """Main entry point for CLI."""
     parser = create_parser()
     args = parser.parse_args(argv)
-    
+
     if args.command is None:
         parser.print_help()
         return EXIT_OK
-    
+
     if args.command == "check":
         return cmd_check(args)
     elif args.command == "index":

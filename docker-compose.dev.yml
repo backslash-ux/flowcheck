@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   flowcheck-server:
     build:
@@ -17,7 +15,7 @@ services:
     volumes:
       - .:/app
       - flowcheck-data:/data/flowcheck
-      - ~/.flowcheck:/root/.flowcheck
+      - ~/.flowcheck:/home/flowcheck/.flowcheck
     stdin_open: true
     tty: true
     restart: no

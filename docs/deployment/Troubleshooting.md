@@ -77,7 +77,7 @@ curl -H "Authorization: Bearer $KEY" https://api.anthropic.com/v1/models
 
 ### Config file not found
 
-**Symptoms**: "FileNotFoundError: ~/.flowcheck/config.yaml"
+**Symptoms**: "FileNotFoundError: ~/.flowcheck/config.json"
 
 **Solutions**:
 ```bash

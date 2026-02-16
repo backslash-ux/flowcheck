@@ -72,7 +72,7 @@ src/flowcheck/
 │   ├── indexer.py    # TF-IDF Vectorizer & SQLite
 │   └── search.py     # Cosine similarity logic
 ├── intent/           # [v0.1] Intent Validation Layer
-│   └── validator.py  # GitHub Issue alignment
+│   └── __init__.py   # GitHub Issue alignment + LLM judge
 ├── telemetry/        # [v0.1] Observability Layer
 │   ├── otel_emitter.py # OpenTelemetry traces
 │   └── audit_logger.py # Immutable audit logs

@@ -4,7 +4,9 @@ This module scans text content (diffs, logs, file contents) for sensitive
 information and replaces it with redaction tokens.
 """
 
+import math
 import re
+from collections import Counter
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
@@ -146,9 +148,6 @@ class Sanitizer:
 
     def _calculate_entropy(self, text: str) -> float:
         """Calculate Shannon entropy of a string."""
-        import math
-        from collections import Counter
-
         if not text:
             return 0.0
 
@@ -200,58 +199,57 @@ class Sanitizer:
             SanitizationResult with sanitized text and metadata.
         """
         self._token_counter.clear()
-        sanitized = text
         redacted_items: list[RedactedItem] = []
         pii_detected = False
         secrets_detected = False
 
-        # Track positions that have been redacted to avoid double-redaction
-        redacted_positions: set[tuple[int, int]] = set()
+        # Phase 1: collect all matches on the original text
+        # Each entry: (start, end, sensitive_type, matched_value)
+        all_matches: list[tuple[int, int, SensitiveType, str]] = []
 
-        # Apply pattern-based detection
         for sensitive_type, patterns in self.PATTERNS.items():
             for pattern in patterns:
-                for match in re.finditer(pattern, sanitized):
-                    # Get the match span
+                for match in re.finditer(pattern, text):
                     start, end = match.span()
-
-                    # Check if already redacted
-                    if any(start < rend and end > rstart for rstart, rend in redacted_positions):
-                        continue
-
-                    # Get the matched value
                     matched_value = match.group()
                     if match.lastindex:
-                        # If there's a capture group, use that
                         matched_value = match.group(1)
-                        # Find the actual position of the capture group
                         start = match.start(1)
                         end = match.end(1)
+                    all_matches.append(
+                        (start, end, sensitive_type, matched_value))
 
-                    # Generate redaction token
-                    token = self._get_redaction_token(sensitive_type)
+        # Remove overlapping matches (keep the first occurrence)
+        all_matches.sort(key=lambda m: m[0])
+        filtered: list[tuple[int, int, SensitiveType, str]] = []
+        for m in all_matches:
+            if filtered and m[0] < filtered[-1][1]:
+                continue  # overlaps with previous kept match
+            filtered.append(m)
 
-                    # Calculate line number
-                    line_number = sanitized[:start].count('\n') + 1
+        # Phase 2: apply replacements in reverse order so positions stay valid
+        sanitized = text
+        for start, end, sensitive_type, matched_value in reversed(filtered):
+            token = self._get_redaction_token(sensitive_type)
+            line_number = text[:start].count('\n') + 1
 
-                    # Create redacted item
-                    item = RedactedItem(
-                        sensitive_type=sensitive_type,
-                        original_length=len(matched_value),
-                        line_number=line_number,
-                        token=token,
-                    )
-                    redacted_items.append(item)
+            item = RedactedItem(
+                sensitive_type=sensitive_type,
+                original_length=len(matched_value),
+                line_number=line_number,
+                token=token,
+            )
+            redacted_items.append(item)
 
-                    # Update flags
-                    if sensitive_type in self.SECRET_TYPES:
-                        secrets_detected = True
-                    else:
-                        pii_detected = True
+            if sensitive_type in self.SECRET_TYPES:
+                secrets_detected = True
+            else:
+                pii_detected = True
 
-                    # Perform redaction
-                    sanitized = sanitized[:start] + token + sanitized[end:]
-                    redacted_positions.add((start, start + len(token)))
+            sanitized = sanitized[:start] + token + sanitized[end:]
+
+        # Reverse so items appear in document order
+        redacted_items.reverse()
 
         # High entropy detection
         if self.enable_high_entropy:
