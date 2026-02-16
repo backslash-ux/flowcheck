@@ -69,9 +69,10 @@ def create_tracer(
         return None
 
     # Create resource with service info
+    from flowcheck import __version__
     resource = Resource.create({
         "service.name": service_name,
-        "service.version": "0.4.0",
+        "service.version": __version__,
     })
 
     # Create provider
