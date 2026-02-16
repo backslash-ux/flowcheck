@@ -16,6 +16,7 @@ from fastmcp import FastMCP
 from flowcheck.core.git_analyzer import analyze_repo, NotAGitRepositoryError
 from flowcheck.config.loader import load_config, load_config_with_warnings, update_config
 from flowcheck.rules.engine import build_flow_state, generate_recommendations
+from flowcheck.guardian import apply_security_scan
 from flowcheck.guardian.sanitizer import Sanitizer
 from flowcheck.guardian.injection_filter import InjectionFilter
 from flowcheck.telemetry.audit_logger import get_audit_logger
@@ -54,25 +55,6 @@ mcp = FastMCP(
 )
 
 
-def _apply_security_scan(diff_content: str) -> list[str]:
-    """Apply security scans and return security flags."""
-    flags = []
-
-    # Check for secrets/PII
-    if sanitizer.quick_check(diff_content):
-        result = sanitizer.sanitize(diff_content)
-        if result.secrets_detected:
-            flags.append("⚠️ SECRETS: Potential secrets detected in diff")
-        if result.pii_detected:
-            flags.append("⚠️ PII: Personal information detected in diff")
-
-    # Check for injection patterns
-    injection_flags = injection_filter.get_security_flags(diff_content)
-    flags.extend(injection_flags)
-
-    return flags
-
-
 @mcp.tool
 def get_flow_state(repo_path: str) -> dict[str, Any]:
     """Get current flow state metrics with security scanning.
@@ -101,7 +83,7 @@ def get_flow_state(repo_path: str) -> dict[str, Any]:
             from git import Repo
             repo = Repo(repo_path, search_parent_directories=True)
             diff_content = repo.git.diff()
-            security_flags = _apply_security_scan(diff_content)
+            security_flags = apply_security_scan(diff_content)
             flow_state.security_flags = security_flags
         except Exception:
             pass
@@ -152,7 +134,7 @@ def get_recommendations(repo_path: str) -> dict[str, Any]:
             from git import Repo
             repo = Repo(repo_path, search_parent_directories=True)
             diff_content = repo.git.diff()
-            security_flags = _apply_security_scan(diff_content)
+            security_flags = apply_security_scan(diff_content)
 
             if security_flags:
                 recommendations.insert(0,
